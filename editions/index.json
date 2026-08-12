@@ -4,10 +4,10 @@
   ],
   "digest": {
     "2026-08-12": {
-      "repos": 13,
-      "activeRepos": 5,
-      "commits7d": 24,
-      "openPRs": 0,
+      "repos": 12,
+      "activeRepos": 4,
+      "commits7d": 18,
+      "openPRs": 1,
       "openIssues": 1,
       "needsAttention": 2
     }
