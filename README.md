@@ -43,6 +43,11 @@ than racing it, and it skips the commit when only the timestamp moved.
 | Standard — smaller engraving | remaining live projects |
 | In Brief — one line, no art | dormant projects |
 | Stop Press — boxed, top of the rail | anything stale |
+| Classifieds — back page | open reviews, set as small ads |
+| Letters to the Editor — back page | open issues, signed off |
+| Obituaries — rail | projects that went dormant since the last edition |
+| The Forecast — rail | last seven days of commits against the seven before |
+| On This Day — rail | the same date in an older edition |
 | The Year in Weather | the commit heatmap, with month labels |
 
 Headlines, decks and body copy are generated from the snapshot. Each category carries

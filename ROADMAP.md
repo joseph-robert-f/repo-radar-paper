@@ -24,15 +24,21 @@ next to it. This rules out anything that reads GitHub live at render time.
 **Presentation only.** Data comes from `repo-radar`'s snapshot. New *fields* mean a
 collector change over there; new *derivations* of existing fields belong here.
 
-### One decision to make early
+### One decision to make early — reviewed at Sprint 2, deferred
 
-`index.html` is ~700 lines today. Sprints 1–4 plausibly take it past 2,500. At some
-point "one file" stops being a virtue and starts being a liability.
+`index.html` was ~700 lines when this was written. Sprints 1–4 plausibly take it past
+2,500, and at some point "one file" stops being a virtue and starts being a liability.
 
 The cheap escape is **native ES modules** — `<script type="module">` with a few local
 `.mjs` files. Browsers do that with no build step and no dependencies, so the rule that
-actually matters ("no toolchain") survives intact. Worth deciding at the top of Sprint 2
-rather than discovering it at line 2,500.
+actually matters ("no toolchain") survives intact.
+
+**Reviewed at the top of Sprint 2 and deferred.** The file came out of Sprint 2 around
+1,200 lines and is still navigable: one clearly-labelled function per section, in the
+order they appear on the page. Splitting now would trade a real cost (four more files
+to open, an import graph to hold in your head) for a hypothetical one. **Revisit at
+Sprint 4**, which adds cross-cutting behaviour — keyboard handling, expansion state,
+routing — that genuinely wants its own module rather than more functions in a pile.
 
 ---
 
@@ -85,7 +91,7 @@ status change and a new project, plus the first-run path where no history exists
 
 ---
 
-## Sprint 2 — More of the paper
+## Sprint 2 — More of the paper ✅ shipped
 
 **The point:** whimsy that carries data. Every new section below is a real view of real
 work, wearing a newspaper's clothes. Nothing here is decoration for its own sake.
@@ -118,6 +124,21 @@ Each section renders correctly with real data, degrades to nothing when its data
 absent, and reads sensibly in the quiet and empty states.
 
 **Size:** medium, and very parallelisable — each section is independent.
+
+**Shipped.** All five, plus a back page holding Classifieds and Letters in two ruled
+columns below the articles. Obituaries, the Forecast and On This Day sit in the rail.
+
+Three notes worth keeping. Letters run **every** open issue, not just assigned ones —
+restricting to assigned left the section permanently empty on real data, and an
+unassigned issue is still a letter; it's just signed "a correspondent" instead of "the
+assignee". The Forecast and On This Day pick one number format per sentence, because
+`spell()` falls back to numerals above twenty and "Eighteen commits against 33" reads
+like a typo. Obituaries and On This Day depend on history, so they stay absent until
+the archive has depth — verified against synthetic editions, which were removed before
+committing.
+
+Verified against real, all-quiet and deliberately-overloaded snapshots (sixteen vacant
+positions, three letters), at 1250px and 390px. No overflow, no console errors, no NaN.
 
 ---
 

@@ -216,6 +216,56 @@
     color: var(--ink); text-decoration: underline; cursor: pointer; padding: 0;
   }
 
+  /* ---------------- the back page ---------------- */
+  .backpage { border-top: 3px double var(--ink); margin-top: 24px; padding-top: 18px; }
+  .backpage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+  .backpage-grid > * { min-width: 0; }
+  .backpage-grid > * + * { border-left: 1px solid var(--rule-faint); padding-left: 26px; }
+  .secthead {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    border-bottom: 1px solid var(--ink); padding-bottom: 6px; margin-bottom: 12px;
+  }
+  .secthead .count { color: var(--ink-3); letter-spacing: 0.08em; }
+
+  /* classifieds — dense, small, ruled */
+  .ads { columns: 2; column-gap: 18px; font-size: 12.5px; line-height: 1.4; }
+  .ad { break-inside: avoid; padding: 7px 0; border-bottom: 1px dotted var(--rule); }
+  .ad .lead-in {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 9.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-3);
+    display: block; margin-bottom: 2px;
+  }
+  .ad a { text-decoration: none; }
+  .ad a:hover { text-decoration: underline; }
+  .ad .where { color: var(--ink-2); display: block; margin-top: 2px; font-size: 11.5px; }
+
+  /* letters */
+  .letter { padding: 9px 0; border-bottom: 1px dotted var(--rule); font-size: 14px; line-height: 1.5; }
+  .letter:last-child { border-bottom: none; }
+  .letter .salut { font-variant: small-caps; letter-spacing: 0.04em; font-weight: 700; }
+  .letter a { text-decoration: none; }
+  .letter a:hover { text-decoration: underline; }
+  .letter .sign { display: block; text-align: right; font-style: italic; color: var(--ink-2); font-size: 12.5px; margin-top: 3px; }
+
+  /* obituaries, forecast, on this day */
+  .obit { padding: 7px 0; border-bottom: 1px dotted var(--rule); font-size: 13.5px; line-height: 1.45; }
+  .obit:last-child { border-bottom: none; }
+  .obit .who { font-weight: 700; }
+  .forecast p, .onthis p { margin: 0 0 6px; font-size: 14px; line-height: 1.45; }
+  .forecast p:last-child, .onthis p:last-child { margin-bottom: 0; }
+  .forecast .glass {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-3); display: block; margin-bottom: 5px;
+  }
+
+  @media (max-width: 900px) {
+    .backpage-grid { grid-template-columns: 1fr; }
+    .backpage-grid > * + * { border-left: none; padding-left: 0; border-top: 1px solid var(--rule-faint); padding-top: 16px; margin-top: 16px; }
+    .ads { columns: 1; }
+  }
+
   /* ---------------- in brief ---------------- */
   .brief-item { padding: 7px 0; border-bottom: 1px dotted var(--rule); }
   .brief-item:last-child { border-bottom: none; }
@@ -330,6 +380,13 @@
 
     <div class="below">
       <div class="below-grid" id="belowGrid"></div>
+    </div>
+
+    <div class="backpage hidden" id="backpage">
+      <div class="backpage-grid">
+        <div id="classifieds"></div>
+        <div id="letters"></div>
+      </div>
     </div>
 
     <footer id="colophon"></footer>
@@ -753,6 +810,136 @@ function weatherHTML(d) {
       <span>Wet</span><span style="margin-left:auto">${total} commits</span></div></div>`;
 }
 
+/* ---------- the back page: classifieds and letters ----------------------
+   Both are the same data the dashboard lists, set as newspaper furniture. The
+   review queue reads better as small ads than as a list, and an open issue is
+   already a letter to the editor in everything but typography.            */
+function classifiedsHTML(d) {
+  const ads = d.repos.flatMap((r) => (r.openPRs || []).map((p) => ({ repo: r, pr: p })));
+  if (!ads.length) {
+    return `<div class="secthead">Classifieds</div>
+      <p class="allclear">No positions vacant. Every review has been filled.</p>`;
+  }
+  const rows = ads.map(({ repo, pr }) => {
+    const waited = Math.round(daysSince(pr.updatedAt));
+    const leadIn = pr.isDraft
+      ? "Not yet ready · work in progress"
+      : [ "Wanted — one reviewer", "Seeking — a second pair of eyes", "For review, without delay" ][seedFrom(repo.name + pr.number) % 3];
+    return `<div class="ad">
+      <span class="lead-in">${esc(leadIn)}</span>
+      <a href="${esc(pr.url)}" target="_blank" rel="noopener">#${pr.number} ${esc(pr.title)}</a>
+      <span class="where">${esc(repo.name)}${repo.language ? ` · ${esc(repo.language)}` : ""} · ${
+        waited < 1 ? "posted today" : `waiting ${plural(waited, "day")}`}. Apply within.</span>
+    </div>`;
+  }).join("");
+  return `<div class="secthead">Classifieds <span class="count">· ${plural(ads.length, "position")} vacant</span></div>
+    <div class="ads">${rows}</div>`;
+}
+
+function lettersHTML(d) {
+  const letters = d.repos.flatMap((r) => (r.openIssues || []).map((i) => ({ repo: r, issue: i })));
+  if (!letters.length) {
+    return `<div class="secthead">Letters to the Editor</div>
+      <p class="allclear">No correspondence this week. The postbag is empty.</p>`;
+  }
+  const rows = letters.map(({ repo, issue }) => {
+    const age = Math.round(daysSince(issue.createdAt));
+    return `<div class="letter">
+      <span class="salut">Sir —</span>
+      <a href="${esc(issue.url)}" target="_blank" rel="noopener">${esc(issue.title)}</a>.
+      ${age < 1 ? "Raised today" : `Raised ${plural(age, "day")} ago`} and still standing.
+      <span class="sign">— ${issue.assigned ? "the assignee" : "a correspondent"}, ${esc(repo.name)}</span>
+    </div>`;
+  }).join("");
+  return `<div class="secthead">Letters to the Editor <span class="count">· ${plural(letters.length, "letter")}</span></div>${rows}`;
+}
+
+/**
+ * Obituaries — projects that crossed into dormant since the last edition.
+ * Written gently on purpose: a repo going quiet is usually a pause, not a
+ * death, and the reader may well be about to pick it back up.
+ */
+function obituariesHTML(diff, repos) {
+  const gone = (diff?.statusChanges || []).filter((s) => s.to === "dormant");
+  if (!gone.length) return "";
+  const rows = gone.map((s) => {
+    const r = repos.find((x) => x.name === s.repo);
+    const branches = r?.counts?.branches || 0;
+    return `<div class="obit">
+      <span class="who">${esc(s.repo)}</span>${r?.language ? `, of ${esc(r.language)}` : ""} —
+      quiet since ${esc(monthYear(r?.lastActivityAt))}.
+      ${branches ? `It leaves ${plural(branches, "branch", "branches")} behind.` : "It leaves nothing outstanding."}
+    </div>`;
+  }).join("");
+  return `<div class="box"><h3>Obituaries</h3>${rows}</div>`;
+}
+
+/**
+ * The Forecast — the last seven days of the daily series against the seven
+ * before. Rule-based and deterministic; the same numbers always give the same
+ * forecast. Back issues don't carry the series, so this simply doesn't run.
+ */
+function forecastHTML(d) {
+  const series = d.repos.map((r) => r.daily).filter((x) => Array.isArray(x) && x.length >= 14);
+  if (!series.length) return "";
+  const sumRange = (from, to) =>
+    series.reduce((n, s) => n + s.slice(from, to).reduce((a, b) => a + b, 0), 0);
+  const week = sumRange(-7, undefined);
+  const before = sumRange(-14, -7);
+
+  // Spelling one number and printing the other as a numeral in the same
+  // sentence reads badly, and spell() falls back to numerals above twenty. So
+  // pick one form for the pair.
+  const bothSpelled = week <= 20 && before <= 20;
+  const n = (x) => (bothSpelled ? spell(x) : String(x));
+  const N = (x) => (bothSpelled ? Spell(x) : String(x));
+
+  let outlook;
+  if (week === 0 && before === 0) outlook = "Settled and dry. Nothing has landed in a fortnight.";
+  else if (week === 0) outlook = `Dry spell. ${N(before)} commits the week before, none since.`;
+  else if (before === 0) outlook = `Breaking out. ${N(week)} commits after a fortnight of nothing.`;
+  else if (week >= before * 1.5) outlook = `Brightening — ${N(week)} commits against ${n(before)} the week before.`;
+  else if (week * 1.5 <= before) outlook = `Easing off — ${N(week)} commits against ${n(before)} the week before.`;
+  else outlook = `Steady — ${N(week)} commits, much as the week before.`;
+
+  const waiting = (d.attention || []).length;
+  const queue = waiting
+    ? `${Plural(waiting, "matter")} outstanding; the queue holds unless someone clears it.`
+    : `Nothing outstanding. Clear skies over the review desk.`;
+
+  return `<div class="box forecast"><h3>The Forecast</h3>
+    <span class="glass">Set by the glass, not by hope</span>
+    <p>${outlook}</p><p>${queue}</p></div>`;
+}
+
+/**
+ * On This Day — pulled from the digests in editions/index.json, which are kept
+ * forever precisely so this keeps working after the rich editions are pruned.
+ */
+function onThisDayHTML(index, todayISO) {
+  const digest = index?.digest || {};
+  const today = Date.parse(todayISO + "T00:00:00Z");
+  const candidates = [
+    [365, "A year ago today"], [180, "Six months ago"], [90, "Three months ago"], [30, "A month ago"],
+  ];
+  for (const [days, label] of candidates) {
+    const key = new Date(today - days * 86400000).toISOString().slice(0, 10);
+    const g = digest[key];
+    if (!g) continue;
+    // One form per sentence: spell() gives numerals above twenty, so if any
+    // figure here is large, print them all as numerals.
+    const all = [g.commits7d, g.repos, g.openPRs, g.needsAttention];
+    const p2 = all.every((x) => x <= 20)
+      ? (n, one, many) => plural(n, one, many)
+      : (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
+    return `<div class="box onthis"><h3>On This Day</h3>
+      <p><b>${esc(label)}</b> — ${p2(g.commits7d, "commit")} that week across
+      ${p2(g.repos, "project")}, ${p2(g.openPRs, "review")} open and
+      ${p2(g.needsAttention, "matter")} waiting.</p></div>`;
+  }
+  return "";
+}
+
 /* ---------- tooltip ---------- */
 const tip = $("#tip");
 function showTip(e, text) {
@@ -775,7 +962,7 @@ $("#themeToggle").addEventListener("click", () => {
    Takes an issue — either today's snapshot or an archived edition — and sets
    the whole front page from it. Back issues are the same shape minus the
    heatmap and the full commit list, so the weather box simply doesn't run. */
-function setPage(d, { diff, prevDate, backIssue } = {}) {
+function setPage(d, { diff, prevDate, backIssue, index } = {}) {
   $("#paper").classList.remove("hidden");
 
   const stamp = d.generatedAt || `${d.date}T12:00:00Z`;
@@ -810,7 +997,10 @@ function setPage(d, { diff, prevDate, backIssue } = {}) {
   $("#colRail").innerHTML =
     (backIssue ? "" : sinceHTML(diff, prevDate))
     + noticesHTML(d)
+    + obituariesHTML(diff, d.repos)
+    + forecastHTML(d)
     + weatherHTML(d)
+    + (backIssue ? "" : onThisDayHTML(index, String(d.generatedAt || d.date).slice(0, 10)))
     + (dormant.length
       ? `<div class="box"><h3>In Brief</h3>${dormant.map((r) => `
           <div class="brief-item">
@@ -822,6 +1012,10 @@ function setPage(d, { diff, prevDate, backIssue } = {}) {
   $("#belowGrid").innerHTML = [...seconds.map((r) => articleHTML(r, "second", d.user, mark(r))),
     ...rest.map((r) => articleHTML(r, "brief", d.user, mark(r)))].join("")
     || `<p>Nothing further to report.</p>`;
+
+  $("#backpage").classList.remove("hidden");
+  $("#classifieds").innerHTML = classifiedsHTML(d);
+  $("#letters").innerHTML = lettersHTML(d);
 
   const hm = $("#heatmap");
   if (hm) {
@@ -867,9 +1061,9 @@ function loadToday() {
     }
 
     const prevDate = older[0];
-    if (!prevDate) return setPage(snap, { diff: null });
+    if (!prevDate) return setPage(snap, { diff: null, index });
     return jsonOr(`editions/${prevDate}.json`, null).then((prev) =>
-      setPage(snap, { diff: prev ? diffEditions(snap, prev) : null, prevDate }));
+      setPage(snap, { diff: prev ? diffEditions(snap, prev) : null, prevDate, index }));
   });
 }
 
