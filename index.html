@@ -390,7 +390,10 @@
     }
     body { background: #fff; font-size: 10.5pt; }
     .sheet { max-width: none; padding: 0; }
-    .mast-top, #backNotice, #tip { display: none !important; }
+    .mast-top, #tip { display: none !important; }
+    /* Keep the back-issue notice — a printed back issue should say so — but
+       drop the button, which is dead on paper. */
+    .backnotice button { display: none; }
     .nameplate .radar .sweep { animation: none; }
     .press { grid-template-columns: 2.2fr 1fr; }
     .box { break-inside: avoid; }
@@ -419,6 +422,9 @@
     .nameplate .radar .sweep { animation: none; }
     .hm i { transition: none; }
     .hm i[data-d]:hover { transform: none; }
+    /* The heatmap tooltip's 90ms fade was missed when this block was written.
+       The rule is that everything that moves is switched off here, so it is. */
+    #tip { transition: none; }
   }
 </style>
 </head>
@@ -774,7 +780,7 @@ function bodyCopy(r, tier) {
   const first = [];
   // Repo descriptions rarely end in punctuation; without this the next
   // sentence runs straight into them. The ellipsis case matters too: the
-  // collector truncates long commit subjects with "…", and "….' reads as a
+  // collector truncates long commit subjects with "…", and "…." reads as a
   // typo.
   const stop = (s) => (/[.!?…]$/.test(s.trim()) ? esc(s.trim()) : esc(s.trim()) + ".");
   first.push(r.description
@@ -838,11 +844,21 @@ function bodyCopy(r, tier) {
 function quotable(r) {
   const pool = r.commits?.length ? r.commits : r.latestCommit ? [r.latestCommit] : [];
   for (let i = 0; i < pool.length; i++) {
-    const m = String(pool[i].message || "").trim().split("\n")[0].trim();
+    const c = pool[i];
+    const m = String(c.message || "").trim().split("\n")[0].trim();
     if (!m || m.length > 84) continue;
     if (/^(merge|revert)\b/i.test(m)) continue;
     if (/…$/.test(m)) continue;  // the collector truncated it; don't quote a fragment
-    return { message: m, label: i === 0 ? "Most recent commit" : "From the week's commits" };
+    // The attribution has to be true of *this* commit. An earlier draft said
+    // "From the week's commits" for anything but the newest, but the pool is
+    // the last ten commits on the default branch however old they are, so on a
+    // quiet project that line could caption a three-month-old message. Date it
+    // from the commit instead, and fall back to a claim that can't be wrong.
+    const when = Number.isFinite(Date.parse(c.date)) ? relTime(c.date) : null;
+    const label = i === 0
+      ? (when ? `Most recent commit · ${when}` : "Most recent commit")
+      : (when ? `Committed ${when}` : "An earlier commit");
+    return { message: m, label };
   }
   return null;
 }
@@ -946,6 +962,25 @@ function sinceHTML(diff, prevDate) {
   return `<div class="box rules since"><h3>Since ${esc(prevDate)}</h3>${lines.join("")}</div>`;
 }
 
+/**
+ * The line under an engraving.
+ *
+ * It only claims the language when the drawing actually came from it. Six
+ * motifs don't go round thirteen projects, so planMotifs() often hands a
+ * project something outside its language's pair — and a caption reading
+ * "a cog, after the HTML" is a plain untruth about how the page was made.
+ * Worse, an untyped project used to get "after the untyped", which says
+ * nothing at all. When the motif isn't the language's, the caption just names
+ * what was cut.
+ */
+function caption(r) {
+  const kind = motifFor(r);
+  const fromLanguage = (MOTIF_BY_LANGUAGE[r.language] || []).includes(kind);
+  return `An impression of ${esc(r.name)}: ${esc(MOTIF_NAMES[kind])}${
+    fromLanguage ? `, after the ${esc(r.language)}` : ""
+  }; ink weight follows activity.`;
+}
+
 function articleHTML(r, tier, user, mark) {
   const art = { lead: 200, second: 132, brief: 96 }[tier];
   const link = (t) => (r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${t}</a>` : t);
@@ -954,7 +989,7 @@ function articleHTML(r, tier, user, mark) {
       mark === "new" ? `<span class="chip new">New</span>` : mark === "moved" ? `<span class="chip moved">Moved</span>` : ""}</div>
     <h2 class="hed">${link(esc(headline(r)))}</h2>
     <p class="deck">${esc(deck(r))}</p>
-    ${art ? `<figure>${engraving(r, art)}<figcaption>An impression of ${esc(r.name)}: ${esc(MOTIF_NAMES[motifFor(r)])}, after the ${esc(r.language || "untyped")}; ink weight follows activity.</figcaption></figure>` : ""}
+    ${art ? `<figure>${engraving(r, art)}<figcaption>${caption(r)}</figcaption></figure>` : ""}
     <div class="byline">Filed by the Collector · <span class="dateline">${esc(user)}</span></div>
     <div class="body">${bodyCopy(r, tier)}${
       tier === "lead" && r.url

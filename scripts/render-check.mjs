@@ -49,6 +49,9 @@ const SHAPES = [
   // doesn't tell you whether the content fits the paper.
   { label: "print-a4", viewport: { width: 794, height: 1123 }, colorScheme: "light", print: true },
   { label: "print-letter", viewport: { width: 816, height: 1056 }, colorScheme: "light", print: true },
+  // Everything that moves has to be switched off here. The heatmap tooltip's
+  // fade slipped through the first time the rule was written down.
+  { label: "reduced-motion", viewport: { width: 1250, height: 900 }, colorScheme: "light", reducedMotion: "reduce" },
 ];
 
 /** Snapshot variants. Today's data is the easy case; these are the hard ones. */
@@ -120,6 +123,25 @@ async function probe(page) {
         .map((e) => getComputedStyle(e).display),
       engravings: [...document.querySelectorAll("figure svg")]
         .map((s) => `${s.outerHTML.length}:${s.getAttribute("aria-label")}`),
+      moving: [...document.querySelectorAll("*")]
+        .filter((el) => {
+          const s = getComputedStyle(el);
+          return (s.animationName !== "none" && s.animationDuration !== "0s")
+            || (s.transitionDuration !== "0s" && s.transitionProperty !== "none");
+        })
+        .map((el) => `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}`),
+      // A caption may only claim a language when the drawing really came from
+      // it. Six motifs don't go round thirteen projects, so planMotifs() hands
+      // plenty of them something outside their language's pair, and saying
+      // "a cog, after the HTML" is a plain untruth about how the page is made.
+      lyingCaptions: [...document.querySelectorAll("figcaption")]
+        .map((f) => f.innerText)
+        .filter((text) => {
+          const m = text.match(/: (.+?), after the (.+?);/);
+          if (!m) return /after the/.test(text);   // any other "after the" phrasing is suspect
+          const kind = MOTIF_NAMES.indexOf(m[1]);
+          return kind < 0 || !(MOTIF_BY_LANGUAGE[m[2]] || []).includes(kind);
+        }),
     };
   });
 }
@@ -142,7 +164,11 @@ async function main() {
       for (const shape of SHAPES) {
         const where = `${name}/${shape.label}`;
         const errs = [];
-        const page = await browser.newPage({ viewport: shape.viewport, colorScheme: shape.colorScheme });
+        const page = await browser.newPage({
+          viewport: shape.viewport,
+          colorScheme: shape.colorScheme,
+          reducedMotion: shape.reducedMotion,
+        });
         page.on("console", (m) => m.type() === "error" && errs.push(m.text()));
         page.on("pageerror", (e) => errs.push(`pageerror: ${e.message}`));
         if (shape.print) await page.emulateMedia({ media: "print" });
@@ -156,6 +182,10 @@ async function main() {
         if (p.bad) fail(where, `"${p.bad}" reached the page`);
         if (p.overflow > 0) fail(where, `${p.overflow}px of horizontal overflow`);
         if (!p.folio) fail(where, "no folio");
+        for (const c of p.lyingCaptions) fail(where, `caption claims a language it didn't use: "${c}"`);
+        if (shape.reducedMotion === "reduce" && p.moving.length) {
+          fail(where, `still animating: ${p.moving.join(", ")}`);
+        }
 
         if (name !== "empty") {
           if (!p.hasLead) fail(where, "no lead article");
