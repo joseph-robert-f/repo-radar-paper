@@ -36,7 +36,7 @@ rather than discovering it at line 2,500.
 
 ---
 
-## Sprint 1 — Since the last edition
+## Sprint 1 — Since the last edition ✅ shipped
 
 **The point:** a newspaper you read every day should tell you what changed since
 yesterday. Right now every load looks identical, so reviewing means re-reading the whole
@@ -74,6 +74,14 @@ and render; the page works with an empty `editions/`; the archive prunes; and a 
 no change adds no commit.
 
 **Size:** large. Workflow plus page. No `repo-radar` change needed.
+
+**Shipped.** `scripts/edition.mjs` files the archive; the workflow commits editions
+alongside the snapshot and still skips a commit when only the timestamp moved. The page
+diffs today against the newest archived day, renders the box and the `New`/`Moved`
+chips, and the masthead picker re-sets the paper from any archived day. Rich editions
+measured at 11.9KB, so retention went to ninety days rather than thirty. Verified
+against a synthetic previous edition covering an opened review, a landed branch, a
+status change and a new project, plus the first-run path where no history exists.
 
 ---
 

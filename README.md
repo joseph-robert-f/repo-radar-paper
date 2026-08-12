@@ -66,8 +66,32 @@ No image files, no API, no build step, and nothing to regenerate on a schedule.
 ```
 index.html                       the whole front page — inline CSS + JS, no deps
 data/snapshot.json               fetched from repo-radar; what the page reads
-.github/workflows/publish.yml    fetch, commit if changed, deploy Pages
+editions/<YYYY-MM-DD>.json       one archived edition per day, pruned to 90
+editions/index.json              dates plus a digest per day, kept forever
+scripts/edition.mjs              files today's edition into the archive
+.github/workflows/publish.yml    fetch, file, commit if changed, deploy Pages
+ROADMAP.md                       what's planned, and why
 ```
+
+## Back issues and the daily delta
+
+The paper keeps its own archive. Every refresh reduces the snapshot to an edition and
+files it under `editions/`, one per UTC day. That buys two things:
+
+- **"Since the last edition"** — a box at the top of the rail saying what actually moved:
+  reviews opened and closed, issues raised and resolved, branches landed, projects that
+  woke up or drifted off. Articles carry a `New` or `Moved` chip to match.
+- **Back issues** — a date picker in the masthead. Pick a day and the paper re-sets
+  itself as it stood then, weather box omitted since editions don't carry the heatmap.
+
+Two tiers, so the archive doesn't grow without limit: rich editions (~12KB) are pruned
+to ninety days, while the ~100-byte digest of each day in `index.json` is kept forever.
+Storing whole snapshots instead would cost roughly 7MB a quarter.
+
+Editions carry **no timestamps that move on their own** — no `generatedAt`. A refresh
+that finds nothing new has to produce a byte-identical edition, or the workflow's
+"don't commit if nothing changed" check quietly stops working, which is a trap
+`repo-radar` fell into three separate times.
 
 ## Local preview
 

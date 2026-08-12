@@ -185,6 +185,37 @@
   .n-meta .crit { color: var(--status-critical); }
   .allclear { font-size: 14.5px; color: var(--ink-2); font-style: italic; }
 
+  /* ---------------- since the last edition ---------------- */
+  .since p { margin: 0 0 7px; font-size: 14.5px; line-height: 1.45; }
+  .since p:last-child { margin-bottom: 0; }
+  .since .none { font-style: italic; color: var(--ink-2); }
+  .since b { font-weight: 700; }
+  .since .gone { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--ink-2); }
+
+  .kicker .chip {
+    font-size: 9.5px; letter-spacing: 0.12em; padding: 1px 5px;
+    border: 1px solid currentColor; border-radius: 2px;
+  }
+  .chip.new { color: var(--recency-hot); }
+  .chip.moved { color: var(--ink-2); }
+
+  /* ---------------- back issues ---------------- */
+  .mast-top select {
+    font: inherit; font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--rule); border-radius: 2px;
+    color: var(--ink-2); padding: 3px 6px; cursor: pointer; max-width: 12rem;
+  }
+  .backnotice {
+    border: 3px double var(--ink); background: var(--paper-2);
+    padding: 11px 14px; margin-bottom: 18px; font-size: 14.5px; text-align: center;
+  }
+  .backnotice b { font-variant: small-caps; letter-spacing: 0.05em; }
+  .backnotice button {
+    font: inherit; font-size: 13px; background: none; border: none;
+    color: var(--ink); text-decoration: underline; cursor: pointer; padding: 0;
+  }
+
   /* ---------------- in brief ---------------- */
   .brief-item { padding: 7px 0; border-bottom: 1px dotted var(--rule); }
   .brief-item:last-child { border-bottom: none; }
@@ -266,6 +297,9 @@
     <div class="mast-top">
       <span id="edition">—</span>
       <span class="spacer"></span>
+      <label class="hidden" id="backIssueWrap">Back issues
+        <select id="backIssue" aria-label="Load a back issue"></select>
+      </label>
       <a href="https://joseph-robert-f.github.io/repo-radar/">Data view</a>
       <button id="themeToggle" type="button">Theme</button>
     </div>
@@ -286,6 +320,7 @@
   <div id="loadError" class="banner hidden"></div>
 
   <div id="paper" class="hidden">
+    <div id="backNotice"></div>
     <p class="lede" id="lede"></p>
 
     <div class="press">
@@ -545,9 +580,10 @@ function bodyCopy(r, user) {
   if (!second.length) second.push(`Nothing is presently outstanding; the trunk stands clear.`);
   ps.push(second.join(" "));
 
-  if (r.commits.length) {
-    ps.push(`Most recently: <em>${esc(r.commits[0].message)}</em>.`);
-  }
+  // Today's issue carries the full commit preview; an archived edition keeps
+  // only the most recent one, to stay small. Accept either.
+  const latest = r.commits?.[0] || r.latestCommit;
+  if (latest) ps.push(`Most recently: <em>${esc(latest.message)}</em>.`);
   return ps.map((p) => `<p>${p}</p>`).join("");
 }
 
@@ -571,11 +607,91 @@ function stateOfTheWorld(d) {
   return bits.join(" ");
 }
 
-function articleHTML(r, tier, user) {
+/* ---------- what changed since the last edition -------------------------
+   The whole point of a daily paper. Compares the current issue against the
+   most recent archived one; everything is derived from the two files, so it
+   stays correct when you page back through the archive too.              */
+function diffEditions(now, prev) {
+  const index = (e) => new Map((e.repos || []).map((r) => [r.name, r]));
+  const was = index(prev), is = index(now);
+  const d = {
+    prsOpened: [], prsClosed: [], issuesOpened: [], issuesClosed: [],
+    branchesNew: [], branchesLanded: [], statusChanges: [],
+    newRepos: [], moved: [], perRepo: new Map(),
+  };
+
+  for (const [name, b] of is) {
+    const a = was.get(name);
+    if (!a) {
+      d.newRepos.push(name);
+      d.perRepo.set(name, "new");
+      continue;
+    }
+    const nums = (xs) => new Set((xs || []).map((x) => x.number));
+    const names = (xs) => new Set((xs || []).map((x) => x.name));
+
+    const prNow = nums(b.openPRs), prWas = nums(a.openPRs);
+    for (const p of b.openPRs || []) if (!prWas.has(p.number)) d.prsOpened.push({ repo: name, ...p });
+    for (const p of a.openPRs || []) if (!prNow.has(p.number)) d.prsClosed.push({ repo: name, ...p });
+
+    const isNow = nums(b.openIssues), isWas = nums(a.openIssues);
+    for (const i of b.openIssues || []) if (!isWas.has(i.number)) d.issuesOpened.push({ repo: name, ...i });
+    for (const i of a.openIssues || []) if (!isNow.has(i.number)) d.issuesClosed.push({ repo: name, ...i });
+
+    const brNow = names(b.branches), brWas = names(a.branches);
+    for (const x of b.branches || []) if (!brWas.has(x.name)) d.branchesNew.push({ repo: name, ...x });
+    for (const x of a.branches || []) if (!brNow.has(x.name)) d.branchesLanded.push({ repo: name, ...x });
+
+    if (a.status !== b.status) d.statusChanges.push({ repo: name, from: a.status, to: b.status });
+
+    const advanced = Date.parse(b.lastActivityAt) > Date.parse(a.lastActivityAt);
+    if (advanced) d.moved.push(name);
+    d.perRepo.set(name, advanced ? "moved" : null);
+  }
+  return d;
+}
+
+/** Rank order for status, so we can say "woke up" or "drifted off". */
+const STATUS_RANK = { hot: 3, active: 2, idle: 1, dormant: 0 };
+
+function sinceHTML(diff, prevDate) {
+  if (!diff) {
+    return `<div class="box rules since"><h3>Since the last edition</h3>
+      <p class="none">This is the first edition on file. From tomorrow this column will
+      say what moved.</p></div>`;
+  }
+  const lines = [];
+  const list = (xs, n = 2) => xs.slice(0, n).map((x) => `<b>${esc(x.title || x.name)}</b>`).join(" and ")
+    + (xs.length > n ? ` and ${plural(xs.length - n, "other")}` : "");
+
+  if (diff.prsOpened.length) lines.push(`<p>${Plural(diff.prsOpened.length, "review")} opened — ${list(diff.prsOpened)}.</p>`);
+  if (diff.prsClosed.length) lines.push(`<p>${Plural(diff.prsClosed.length, "review")} <span class="gone">closed</span> — ${list(diff.prsClosed)}.</p>`);
+  if (diff.issuesOpened.length) lines.push(`<p>${Plural(diff.issuesOpened.length, "issue")} raised — ${list(diff.issuesOpened)}.</p>`);
+  if (diff.issuesClosed.length) lines.push(`<p>${Plural(diff.issuesClosed.length, "issue")} <span class="gone">resolved</span>.</p>`);
+  if (diff.branchesLanded.length) lines.push(`<p>${Plural(diff.branchesLanded.length, "branch", "branches")} landed — ${list(diff.branchesLanded)}.</p>`);
+  if (diff.branchesNew.length) lines.push(`<p>${Plural(diff.branchesNew.length, "new branch", "new branches")} appeared.</p>`);
+
+  for (const s of diff.statusChanges.slice(0, 3)) {
+    const up = (STATUS_RANK[s.to] ?? 0) > (STATUS_RANK[s.from] ?? 0);
+    lines.push(`<p><b>${esc(titleCase(s.repo))}</b> ${up ? "woke up" : "drifted off"} — ${esc(s.from)} to ${esc(s.to)}.</p>`);
+  }
+  if (diff.newRepos.length) lines.push(`<p>${Plural(diff.newRepos.length, "project")} joined the register: <b>${diff.newRepos.map((n) => esc(titleCase(n))).join(", ")}</b>.</p>`);
+
+  if (!lines.length) {
+    lines.push(`<p class="none">Nothing moved. ${diff.moved.length ? `${Plural(diff.moved.length, "project")} took commits, but no reviews, issues or branches changed hands.` : "A genuinely quiet day."}</p>`);
+  } else if (diff.moved.length) {
+    lines.push(`<p class="none">${Plural(diff.moved.length, "project")} also took new commits.</p>`);
+  }
+
+  return `<div class="box rules since"><h3>Since ${esc(prevDate)}</h3>${lines.join("")}</div>`;
+}
+
+function articleHTML(r, tier, user, mark) {
   const art = { lead: 200, second: 132, brief: 96 }[tier];
   const link = (t) => (r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${t}</a>` : t);
   return `<article class="${tier === "lead" ? "lead" : tier === "second" ? "second" : "brief-story"}">
-    <div class="kicker"><span class="pip ${r.status}"></span>${esc(r.status)}${r.language ? ` · ${esc(r.language)}` : ""}${r.pinned ? " · Pinned" : ""}</div>
+    <div class="kicker"><span class="pip ${r.status}"></span>${esc(r.status)}${r.language ? ` · ${esc(r.language)}` : ""}${r.pinned ? " · Pinned" : ""}${
+      mark === "new" ? `<span class="chip new">New</span>` : mark === "moved" ? `<span class="chip moved">Moved</span>` : ""}</div>
     <h2 class="hed">${link(esc(headline(r)))}</h2>
     <p class="deck">${esc(deck(r))}</p>
     ${art ? `<figure>${engraving(r, art)}<figcaption>An impression of ${esc(r.name)}, struck from its name; ink weight follows activity.</figcaption></figure>` : ""}
@@ -655,58 +771,117 @@ $("#themeToggle").addEventListener("click", () => {
   document.documentElement.setAttribute("data-theme", cur ? (cur === "dark" ? "light" : "dark") : (sysDark ? "light" : "dark"));
 });
 
+/* ---------- setting the page ----------------------------------------------
+   Takes an issue — either today's snapshot or an archived edition — and sets
+   the whole front page from it. Back issues are the same shape minus the
+   heatmap and the full commit list, so the weather box simply doesn't run. */
+function setPage(d, { diff, prevDate, backIssue } = {}) {
+  $("#paper").classList.remove("hidden");
+
+  const stamp = d.generatedAt || `${d.date}T12:00:00Z`;
+  $("#dateline").textContent = longDate(stamp);
+  $("#scopeline").textContent = `${d.repos.length} public repositories · ${d.user}`;
+  // Edition number counts days since the paper was founded.
+  const founded = Date.parse("2026-08-05T00:00:00Z");
+  const no = Math.max(1, Math.round((Date.parse(stamp) - founded) / 86400000) + 1);
+  $("#edition").textContent = `Vol. I · No. ${no} · ${backIssue ? "Back Issue" : "Late Edition"}`;
+  $("#lede").innerHTML = stateOfTheWorld(d);
+
+  $("#backNotice").innerHTML = backIssue
+    ? `<div class="backnotice"><b>Back issue</b> — this is the paper as it stood on
+       ${esc(longDate(stamp))}. <button type="button" id="toToday">Return to today's edition</button></div>`
+    : "";
+  const back = $("#toToday");
+  if (back) back.addEventListener("click", () => { $("#backIssue").value = ""; loadToday(); });
+
+  // Placement is the ranking: the issue already orders repos by real activity,
+  // so position on the page is the story's importance.
+  const live = d.repos.filter((r) => r.status !== "dormant");
+  const dormant = d.repos.filter((r) => r.status === "dormant");
+  const [lead, ...restLive] = live.length ? live : d.repos;
+  const seconds = restLive.slice(0, 2);
+  const rest = restLive.slice(2);
+  const mark = (r) => diff?.perRepo.get(r.name);
+
+  $("#colMain").innerHTML = lead
+    ? articleHTML(lead, "lead", d.user, mark(lead))
+    : `<p class="lede">No public repositories to report.</p>`;
+
+  $("#colRail").innerHTML =
+    (backIssue ? "" : sinceHTML(diff, prevDate))
+    + noticesHTML(d)
+    + weatherHTML(d)
+    + (dormant.length
+      ? `<div class="box"><h3>In Brief</h3>${dormant.map((r) => `
+          <div class="brief-item">
+            <span class="bi-name">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</span>
+            <span class="bi-meta"> — quiet since ${esc(monthYear(r.lastActivityAt))}.</span>
+          </div>`).join("")}</div>`
+      : "");
+
+  $("#belowGrid").innerHTML = [...seconds.map((r) => articleHTML(r, "second", d.user, mark(r))),
+    ...rest.map((r) => articleHTML(r, "brief", d.user, mark(r)))].join("")
+    || `<p>Nothing further to report.</p>`;
+
+  const hm = $("#heatmap");
+  if (hm) {
+    const move = (e) => {
+      const c = e.target.closest("i[data-d]");
+      if (!c) { hideTip(); return; }
+      showTip(e, `${c.dataset.n} commits · ${c.dataset.d}`);
+    };
+    hm.addEventListener("mouseover", move);
+    hm.addEventListener("mousemove", move);
+    hm.addEventListener("mouseleave", hideTip);
+  }
+
+  $("#colophon").innerHTML =
+    `The Repo Radar is set from <code>data/snapshot.json</code>, gathered every six hours by <a href="https://github.com/joseph-robert-f/repo-radar">repo-radar</a>.<br>
+     Private repositories are not collected. Engravings are struck deterministically from each project's name.<br>
+     Impression taken ${esc(stamp)}. <a href="https://joseph-robert-f.github.io/repo-radar/">The data view</a> remains available to subscribers.`;
+  scrollTo({ top: 0, behavior: "instant" });
+}
+
 /* ---------- press run ---------- */
-fetch("data/snapshot.json", { cache: "no-store" })
-  .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-  .then((d) => {
-    $("#paper").classList.remove("hidden");
+const jsonOr = (url, fallback) =>
+  fetch(url, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : fallback))
+    .catch(() => fallback);
 
-    $("#dateline").textContent = longDate(d.generatedAt);
-    $("#scopeline").textContent = `${d.repos.length} public repositories · ${esc(d.user)}`;
-    // Edition number counts snapshots since the paper was founded, one per day.
-    const founded = Date.parse("2026-08-05T00:00:00Z");
-    const no = Math.max(1, Math.round((Date.parse(d.generatedAt) - founded) / 86400000) + 1);
-    $("#edition").textContent = `Vol. I · No. ${no} · Late Edition`;
-    $("#lede").innerHTML = stateOfTheWorld(d);
+function loadToday() {
+  return Promise.all([
+    fetch("data/snapshot.json", { cache: "no-store" })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+    jsonOr("editions/index.json", { dates: [] }),
+  ]).then(([snap, index]) => {
+    const today = String(snap.generatedAt).slice(0, 10);
+    const dates = (index.dates || []).filter(Boolean).sort().reverse();
 
-    // Placement is the ranking: the snapshot already orders repos by real
-    // activity, so position on the page is the story's importance.
-    const live = d.repos.filter((r) => r.status !== "dormant");
-    const dormant = d.repos.filter((r) => r.status === "dormant");
-    const [lead, ...restLive] = live.length ? live : d.repos;
-    const seconds = restLive.slice(0, 2);
-    const rest = restLive.slice(2);
-
-    $("#colMain").innerHTML = lead ? articleHTML(lead, "lead", d.user) : `<p class="lede">No public repositories to report.</p>`;
-    $("#colRail").innerHTML = noticesHTML(d) + weatherHTML(d)
-      + (dormant.length
-        ? `<div class="box"><h3>In Brief</h3>${dormant.map((r) => `
-            <div class="brief-item">
-              <span class="bi-name">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</span>
-              <span class="bi-meta"> — quiet since ${esc(monthYear(r.lastActivityAt))}.</span>
-            </div>`).join("")}</div>`
-        : "");
-
-    $("#belowGrid").innerHTML = [...seconds.map((r) => articleHTML(r, "second", d.user)),
-      ...rest.map((r) => articleHTML(r, "brief", d.user))].join("") || `<p>Nothing further to report.</p>`;
-
-    const hm = $("#heatmap");
-    if (hm) {
-      const move = (e) => {
-        const c = e.target.closest("i[data-d]");
-        if (!c) { hideTip(); return; }
-        showTip(e, `${c.dataset.n} commits · ${c.dataset.d}`);
-      };
-      hm.addEventListener("mouseover", move);
-      hm.addEventListener("mousemove", move);
-      hm.addEventListener("mouseleave", hideTip);
+    // Offer every archived day except today's, which is what you're looking at.
+    const back = $("#backIssue");
+    const older = dates.filter((x) => x !== today);
+    if (older.length) {
+      $("#backIssueWrap").classList.remove("hidden");
+      back.innerHTML = `<option value="">Today</option>`
+        + older.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
     }
 
-    $("#colophon").innerHTML =
-      `The Repo Radar is set from <code>data/snapshot.json</code>, gathered every six hours by <a href="https://github.com/joseph-robert-f/repo-radar">repo-radar</a>.<br>
-       Private repositories are not collected. Engravings are struck deterministically from each project's name.<br>
-       Impression taken ${esc(d.generatedAt)}. <a href="https://joseph-robert-f.github.io/repo-radar/">The data view</a> remains available to subscribers.`;
-  })
+    const prevDate = older[0];
+    if (!prevDate) return setPage(snap, { diff: null });
+    return jsonOr(`editions/${prevDate}.json`, null).then((prev) =>
+      setPage(snap, { diff: prev ? diffEditions(snap, prev) : null, prevDate }));
+  });
+}
+
+$("#backIssue").addEventListener("change", (e) => {
+  const date = e.target.value;
+  if (!date) return loadToday();
+  jsonOr(`editions/${date}.json`, null).then((ed) => {
+    if (ed) setPage(ed, { backIssue: true });
+  });
+});
+
+loadToday()
   .catch((err) => {
     const b = $("#loadError");
     b.classList.remove("hidden");

@@ -51,26 +51,39 @@ jobs:
           "
           mv data/snapshot.fetched.json data/snapshot.json
 
-      - name: Commit the snapshot if it changed
+      - name: File today's edition into the archive
+        run: node scripts/edition.mjs
+
+      - name: Commit the snapshot and edition if anything changed
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- data/snapshot.json; then
-            echo "no change"; exit 0
+
+          # generatedAt moves whenever repo-radar recollects; everything else
+          # only moves when something actually happened. Compare without it so a
+          # quiet day doesn't take a commit. Editions carry no timestamps at
+          # all, so they compare as-is.
+          snapshot_changed=false
+          if ! git diff --quiet -- data/snapshot.json; then
+            before=$(git show HEAD:data/snapshot.json 2>/dev/null | grep -v '"generatedAt"' || true)
+            after=$(grep -v '"generatedAt"' data/snapshot.json || true)
+            [ "$before" != "$after" ] && snapshot_changed=true
           fi
-          # generatedAt moves whenever repo-radar recollects; everything else only
-          # moves when something actually happened. Compare without it so a quiet
-          # day doesn't take a commit.
-          before=$(git show HEAD:data/snapshot.json 2>/dev/null | grep -v '"generatedAt"' || true)
-          after=$(grep -v '"generatedAt"' data/snapshot.json || true)
-          if [ "$before" = "$after" ]; then
+
+          editions_changed=false
+          git diff --quiet -- editions || editions_changed=true
+          [ -n "$(git ls-files --others --exclude-standard -- editions)" ] && editions_changed=true
+
+          if [ "$snapshot_changed" = false ] && [ "$editions_changed" = false ]; then
             echo "only the timestamp moved — not committing"
             git checkout -- data/snapshot.json
             exit 0
           fi
-          git add data/snapshot.json
+
+          git add data/snapshot.json editions
           git commit -m "chore: set from a fresh snapshot"
           git push
+          echo "committed — snapshot: $snapshot_changed, editions: $editions_changed"
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
