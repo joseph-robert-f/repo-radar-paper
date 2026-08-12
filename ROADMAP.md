@@ -207,6 +207,43 @@ deliberately reordered one.
 
 ---
 
+## Sprint 3½ — A voice worth reading ✅ shipped
+
+Not originally on the list. It came out of the QA pass on Sprint 3: the typography was
+right and the page still read like a status report written by someone having a bad week.
+
+**Every story now has an angle.** `angleFor()` picks the most interesting true thing
+about a project — streak, milestone, waking up, a surge, a clean desk, a queue, a rest,
+parked work, sleeping — and the headline, the opening line and the fact ordering all
+follow from it. Each angle carries four to six phrasings and `planHeadlines()` spreads
+them across the page, restarting the cycle when an angle has more projects than forms.
+
+**The register warmed up throughout** — the lede, Stop Press, Classifieds, Letters, the
+Forecast, the empty states, and *Obituaries*, which is now *Gone to Sleep* because being
+condoled with over your own side project is a strange experience.
+
+What kept catching us out was the difference between cheerful and untrue. Four separate
+fixes, all the same mistake:
+
+- "A quiet week after a **productive** month" fired on a month with one commit.
+- "**The desk is clear here**" printed for a project whose two branches Stop Press was
+  simultaneously reporting as the oldest thing waiting.
+- "A Well-Earned Quiet Week at …" ran on a project whose branches had sat 96 days —
+  fixed by preferring the *parked* angle over *breather* when the month was thin.
+- "**A** HTML project", and sentences mixing "seven" with "33".
+
+The rule that came out of it: warmth lives in how a true thing is said, never in saying a
+nicer thing. `numerals()` now enforces one number format per sentence in one place rather
+than three, and `article()` handles "an HTML".
+
+Also fixed here, both found by the same pass and both pre-existing: `--ink-3` measured
+3.97:1 in light mode — under WCAG AA for the kickers, bylines, captions, folio and legend
+that use it — and is now `#726f66` at 4.64:1; and the theme toggle didn't survive a
+reload, so the choice is remembered in `localStorage` now, wrapped because it throws
+outright in a few browser configurations.
+
+---
+
 ## Sprint 4 — The reader's hand
 
 **The point:** "dynamic" in the sense that matters — the page responds to you. Today it

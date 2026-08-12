@@ -71,6 +71,19 @@ function variants(real) {
       tasks: [], attention: [],
       summary: { ...real.summary, openPRs: 0, openIssues: 0, commits7d: 0, needsAttention: 0, activeRepos: 0 },
     },
+    // The shape a back issue has: no heatmap, no daily series, and one
+    // latestCommit per project instead of the ten-commit preview. This is
+    // where the page has broken before — bodyCopy() read r.commits.length and
+    // took the whole render down — and the angle logic leans on `daily`, so it
+    // needs exercising against data that hasn't got any.
+    archived: {
+      ...real,
+      heatmap: [],
+      repos: repos.map((r) => {
+        const { daily, commits, ...rest } = r;
+        return { ...rest, latestCommit: commits?.[0] || null };
+      }),
+    },
     // A lead with a commit message worth setting large. The pull quote has to
     // actually appear, or the whole feature could rot away unnoticed — today's
     // real lead legitimately may have nothing quotable, so `real` can't carry
