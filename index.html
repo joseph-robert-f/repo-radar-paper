@@ -152,10 +152,49 @@
 
   .body p { margin: 0 0 9px; }
   .body p:last-child { margin-bottom: 0; }
-  .body .dateline { font-variant: small-caps; letter-spacing: 0.04em; font-weight: 700; }
+  .byline .dateline { font-variant: small-caps; letter-spacing: 0.06em; }
   .lead .body { columns: 2; column-gap: 24px; font-size: 15.5px; }
   .lead .body p { break-inside: avoid; }
   .second .body, .brief-story .body { font-size: 14.5px; }
+
+  /* Justified with hyphenation is what makes a column read as a column. Only
+     where the measure is wide enough — justifying a narrow column opens
+     rivers of whitespace, so the narrow breakpoint turns it back off. */
+  .body { text-align: justify; hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; }
+
+  /* Drop cap on the lead's opening paragraph. The dateline moved up into the
+     byline so this lands on prose rather than on a username. */
+  .lead .body > p:first-of-type::first-letter {
+    float: left; font-size: 3.1em; line-height: 0.82;
+    padding: 0.04em 0.09em 0 0; font-weight: 700;
+  }
+
+  /* Pull quote — the most recent commit, spanning both columns of the lead. */
+  .pullquote {
+    column-span: all; margin: 12px 0; padding: 11px 0;
+    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+    font-size: 19px; line-height: 1.35; font-style: italic; text-align: center;
+    hyphens: none;
+  }
+  .pullquote cite { display: block; font-style: normal; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3); margin-top: 6px; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  /* Jump line. Points somewhere real rather than to an imaginary page two. */
+  .jump {
+    margin-top: 10px; font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    text-align: right; column-span: all;
+  }
+  .jump a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .jump a:hover { color: var(--ink); }
+
+  /* Folio — the line every printed page carries at its foot. */
+  .folio {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    border-top: 1px solid var(--ink); margin-top: 26px; padding-top: 8px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3);
+  }
 
   figure { margin: 0 0 12px; }
   figure svg { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: var(--paper-2); }
@@ -331,6 +370,49 @@
   @media (max-width: 560px) {
     .sheet { padding: 18px 14px 54px; }
     .lede { font-size: 16.5px; text-align: left; }
+    /* A justified column this narrow is all rivers. Back to ragged right. */
+    .body { text-align: left; hyphens: manual; }
+    .pullquote { font-size: 17px; }
+  }
+
+  /* ---------------- the printed edition ----------------
+     The payoff: Cmd-P and it comes out as a broadsheet. Interactive chrome
+     goes, colour goes, the grid holds, and stories don't break mid-headline. */
+  @media print {
+    @page { margin: 14mm; }
+    :root {
+      --paper: #fff; --paper-2: #fff;
+      --ink: #000; --ink-2: #222; --ink-3: #555;
+      --rule: #000; --rule-faint: #999;
+      --hm-0: #eee; --hm-1: #ccc; --hm-2: #999; --hm-3: #666; --hm-4: #222;
+      --recency-hot: #000; --recency-active: #444; --recency-idle: #888; --recency-dormant: #bbb;
+      --status-warning: #000; --status-critical: #000;
+    }
+    body { background: #fff; font-size: 10.5pt; }
+    .sheet { max-width: none; padding: 0; }
+    .mast-top, #backNotice, #tip { display: none !important; }
+    .nameplate .radar .sweep { animation: none; }
+    .press { grid-template-columns: 2.2fr 1fr; }
+    .box { break-inside: avoid; }
+    article { break-inside: avoid; }
+    h2.hed { break-after: avoid; }
+    figure { break-inside: avoid; }
+    /* A year of weather is ~570px wide on screen and lives in a scroller. Paper
+       doesn't scroll, and the printed rail is a third of an A4 page, so shrink
+       the cells to fit rather than clipping months off the left-hand edge.
+       grid-template-columns is set inline per week count, hence !important;
+       grid-auto-columns then sizes the same track regardless of the count. */
+    .hm-scroll { overflow: hidden; }
+    .hm-months {
+      grid-template-columns: none !important; grid-auto-columns: 3px;
+      gap: 1px; font-size: 6px; letter-spacing: 0; height: 9px;
+    }
+    .hm { grid-template-rows: repeat(7, 3px); gap: 1px; }
+    .hm i, .hm-legend i { width: 3px; height: 3px; }
+    .hm-legend { font-size: 8px; gap: 3px; }
+    /* Give the reader the destination, since a printed link can't be clicked. */
+    .jump a::after { content: " (" attr(href) ")"; font-size: 8pt; letter-spacing: 0; text-transform: none; }
+    .folio { break-before: avoid; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -389,6 +471,7 @@
       </div>
     </div>
 
+    <div class="folio" id="folio"></div>
     <footer id="colophon"></footer>
   </div>
 </div>
@@ -514,6 +597,82 @@ function motif(kind, r, W, H) {
 }
 
 /**
+ * Which woodcut a project gets.
+ *
+ * Keyed off language, so the picture has some bearing on the subject — a cog
+ * for a Python pipeline, a skyline for a site — rather than being pure hash.
+ *
+ * Each language gets a *pair*, not a single motif, and the name hash picks
+ * within it. Keying on language alone was tried first and looked worse than
+ * the hash it replaced: four of this account's projects are TypeScript, so
+ * four articles in a row carried the same drawing. The first of each pair is
+ * the language's emblem, the second a companion that keeps a page of one
+ * language from being a page of one picture. Unknown languages fall back to
+ * the hash across all six.
+ *
+ * Deterministic either way: same repo name, same engraving, every load.
+ */
+const MOTIF_BY_LANGUAGE = {
+  Python: [4, 3], Ruby: [4, 1], Go: [4, 0], Rust: [4, 0], C: [4, 2], "C++": [4, 2],
+  JavaScript: [3, 5], TypeScript: [3, 1], Elixir: [3, 5],
+  HTML: [2, 5], CSS: [2, 0], SCSS: [2, 0], Astro: [2, 3], Svelte: [2, 3], Vue: [2, 3],
+  Swift: [0, 2], Kotlin: [0, 4], Java: [0, 4], "Objective-C": [0, 2],
+  Shell: [1, 4], Lua: [1, 3], Perl: [1, 5], Nix: [1, 4],
+  "Jupyter Notebook": [5, 3], R: [5, 1], Julia: [5, 3],
+};
+/** Index-aligned with motif()'s six branches, for captions and alt text. */
+const MOTIF_NAMES = ["a ridgeline", "a swell", "a skyline", "an orbit", "a cog", "a canopy"];
+
+/**
+ * Motifs for the whole issue, decided together rather than one repo at a time.
+ *
+ * Per-repo language keying alone stacked up badly: four TypeScript projects
+ * meant three orbits in the first five articles, even after each language was
+ * given a pair to choose from, because a hash mod 2 doesn't spread four items.
+ * So hand the emblems out in one pass and let each project take the best motif
+ * not already spent.
+ *
+ * Handed out in **name order, over every repo in the issue** — not in page
+ * order, and not only over the ones that get a picture. Page order is the
+ * activity ranking, which reshuffles daily, so planning against it would draw
+ * the same project differently in yesterday's paper than in today's. Name
+ * order changes only when a project is created or hidden, so an engraving
+ * holds still the way a woodblock should.
+ */
+let motifPlan = new Map();
+function planMotifs(repos) {
+  const used = new Map(), plan = new Map();
+  const count = (k) => used.get(k) || 0;
+  // Projects whose language means something go first, so an emblem lands on a
+  // project it describes rather than being taken by an untyped repo that would
+  // have been just as happy with anything.
+  const queue = [...repos].sort((a, b) =>
+    (MOTIF_BY_LANGUAGE[a.language] ? 0 : 1) - (MOTIF_BY_LANGUAGE[b.language] ? 0 : 1)
+    || a.name.localeCompare(b.name));
+
+  for (const r of queue) {
+    const seed = seedFrom(r.name);
+    // Best to worst: the language's emblem, its companion, the name's own
+    // hash, then the rest in hash-rotated order so the tail isn't always 0–5.
+    const order = Array.from({ length: 6 }, (_, i) => (seed + i) % 6);
+    const cands = [...(MOTIF_BY_LANGUAGE[r.language] || []), seed % 6, ...order];
+    const pick = cands.find((k) => count(k) === 0)
+      ?? cands.find((k) => count(k) < 2)
+      ?? cands[0];
+    used.set(pick, count(pick) + 1);
+    plan.set(r.name, pick);
+  }
+  return plan;
+}
+
+function motifFor(repo) {
+  if (motifPlan.has(repo.name)) return motifPlan.get(repo.name);
+  const pair = MOTIF_BY_LANGUAGE[repo.language];
+  const seed = seedFrom(repo.name);
+  return pair ? pair[seed % pair.length] : seed % 6;
+}
+
+/**
  * @param {object} repo
  * @param {number} h  block height — bigger stories get bigger pictures
  */
@@ -540,10 +699,11 @@ function engraving(repo, h) {
       dots.push(`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(0.5 + r() * 1.5 * heat).toFixed(2)}" fill="currentColor" opacity="${(0.14 + r() * 0.3).toFixed(2)}"/>`);
     }
   }
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Engraving for ${esc(repo.name)}" style="color:var(--ink)">
+  const kind = motifFor(repo);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="A woodcut of ${esc(MOTIF_NAMES[kind])}, standing for ${esc(repo.name)}" style="color:var(--ink)">
     <rect width="${W}" height="${H}" fill="var(--paper-2)"/>
     ${hatch.join("")}
-    ${motif(seed % 6, r, W, H)}
+    ${motif(kind, r, W, H)}
     ${dots.join("")}
   </svg>`;
 }
@@ -605,14 +765,18 @@ function deck(r) {
   return cap(`${bits.join(", ")} — last touched ${relTime(r.lastActivityAt)}.`);
 }
 
-function bodyCopy(r, user) {
+function bodyCopy(r, tier) {
   const c = r.counts, ps = [];
   const S = titleCase(r.name);
+  // The dateline used to open this paragraph. It moved up into the byline so
+  // the lead's drop cap lands on prose rather than on the first letter of a
+  // username — "j" of joseph-robert-f, set three lines tall.
   const first = [];
-  first.push(`<span class="dateline">${esc(user)} —</span>`);
   // Repo descriptions rarely end in punctuation; without this the next
-  // sentence runs straight into them.
-  const stop = (s) => (/[.!?]$/.test(s.trim()) ? esc(s.trim()) : esc(s.trim()) + ".");
+  // sentence runs straight into them. The ellipsis case matters too: the
+  // collector truncates long commit subjects with "…", and "….' reads as a
+  // typo.
+  const stop = (s) => (/[.!?…]$/.test(s.trim()) ? esc(s.trim()) : esc(s.trim()) + ".");
   first.push(r.description
     ? stop(r.description)
     : `The ${esc(r.language || "untyped")} project known as ${esc(r.name)} carries no description of itself.`);
@@ -640,8 +804,47 @@ function bodyCopy(r, user) {
   // Today's issue carries the full commit preview; an archived edition keeps
   // only the most recent one, to stay small. Accept either.
   const latest = r.commits?.[0] || r.latestCommit;
-  if (latest) ps.push(`Most recently: <em>${esc(latest.message)}</em>.`);
-  return ps.map((p) => `<p>${p}</p>`).join("");
+  if (latest) {
+    const m = String(latest.message).trim();
+    ps.push(`Most recently: <em>${esc(m)}</em>${/[.!?…]$/.test(m) ? "" : "."}`);
+  }
+
+  const html = ps.map((p) => `<p>${p}</p>`).join("");
+  if (tier !== "lead") return html;
+  const quoted = quotable(r);
+  if (!quoted) return html;
+
+  const pull = `<blockquote class="pullquote">&ldquo;${esc(quoted.message)}&rdquo;
+    <cite>${esc(quoted.label)} · ${esc(r.name)}</cite></blockquote>`;
+  // Place it after the first paragraph so the drop cap isn't orphaned.
+  const cut = html.indexOf("</p>") + 4;
+  return html.slice(0, cut) + pull + html.slice(cut);
+}
+
+/**
+ * The line to set large between the lead's columns.
+ *
+ * Not simply the newest commit. Two kinds of message read as a mistake at 19px:
+ * anything long enough to wrap three times, and a merge commit — "Merge pull
+ * request #14 from joseph-robert-f/codex/service-o…" is machine bookkeeping,
+ * not something a person said about the work. So walk back through the preview
+ * for the most recent message that is actually worth quoting, and if none of
+ * them is, set no pull quote at all. A blank space is better than a bad quote.
+ *
+ * An archived edition carries only `latestCommit`, so back issues get one
+ * candidate rather than ten and will more often show nothing. That's correct:
+ * a back issue shouldn't invent a quote today's edition wouldn't have run.
+ */
+function quotable(r) {
+  const pool = r.commits?.length ? r.commits : r.latestCommit ? [r.latestCommit] : [];
+  for (let i = 0; i < pool.length; i++) {
+    const m = String(pool[i].message || "").trim().split("\n")[0].trim();
+    if (!m || m.length > 84) continue;
+    if (/^(merge|revert)\b/i.test(m)) continue;
+    if (/…$/.test(m)) continue;  // the collector truncated it; don't quote a fragment
+    return { message: m, label: i === 0 ? "Most recent commit" : "From the week's commits" };
+  }
+  return null;
 }
 
 /* ---------- the front page ---------- */
@@ -751,9 +954,12 @@ function articleHTML(r, tier, user, mark) {
       mark === "new" ? `<span class="chip new">New</span>` : mark === "moved" ? `<span class="chip moved">Moved</span>` : ""}</div>
     <h2 class="hed">${link(esc(headline(r)))}</h2>
     <p class="deck">${esc(deck(r))}</p>
-    ${art ? `<figure>${engraving(r, art)}<figcaption>An impression of ${esc(r.name)}, struck from its name; ink weight follows activity.</figcaption></figure>` : ""}
-    <div class="byline">Filed by the Collector</div>
-    <div class="body">${bodyCopy(r, user)}</div>
+    ${art ? `<figure>${engraving(r, art)}<figcaption>An impression of ${esc(r.name)}: ${esc(MOTIF_NAMES[motifFor(r)])}, after the ${esc(r.language || "untyped")}; ink weight follows activity.</figcaption></figure>` : ""}
+    <div class="byline">Filed by the Collector · <span class="dateline">${esc(user)}</span></div>
+    <div class="body">${bodyCopy(r, tier)}${
+      tier === "lead" && r.url
+        ? `<p class="jump"><a href="${esc(r.url)}" target="_blank" rel="noopener">Continued on the project page &rarr;</a></p>`
+        : ""}</div>
   </article>`;
 }
 
@@ -989,6 +1195,9 @@ function setPage(d, { diff, prevDate, backIssue, index } = {}) {
   const seconds = restLive.slice(0, 2);
   const rest = restLive.slice(2);
   const mark = (r) => diff?.perRepo.get(r.name);
+  // Engravings are handed out for the whole issue before any article is set,
+  // so the page doesn't repeat a drawing it needn't.
+  motifPlan = planMotifs(d.repos);
 
   $("#colMain").innerHTML = lead
     ? articleHTML(lead, "lead", d.user, mark(lead))
@@ -1029,9 +1238,12 @@ function setPage(d, { diff, prevDate, backIssue, index } = {}) {
     hm.addEventListener("mouseleave", hideTip);
   }
 
+  $("#folio").innerHTML =
+    `<span>The Repo Radar</span><span>${esc(longDate(stamp))}</span><span>Page One</span>`;
+
   $("#colophon").innerHTML =
     `The Repo Radar is set from <code>data/snapshot.json</code>, gathered every six hours by <a href="https://github.com/joseph-robert-f/repo-radar">repo-radar</a>.<br>
-     Private repositories are not collected. Engravings are struck deterministically from each project's name.<br>
+     Private repositories are not collected. Engravings are struck deterministically: the subject follows the project's language, the cutting follows its name.<br>
      Impression taken ${esc(stamp)}. <a href="https://joseph-robert-f.github.io/repo-radar/">The data view</a> remains available to subscribers.`;
   scrollTo({ top: 0, behavior: "instant" });
 }
