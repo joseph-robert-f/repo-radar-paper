@@ -1,9 +1,21 @@
 # Roadmap — fleshing out the broadsheet
 
-Four sprints, ordered so each one ships something you'd notice on its own. Sprint 1 is
-the one that changes what the paper is *for*; the rest make it a pleasure to read.
+Ordered so each sprint ships something you'd notice on its own. Sprint 1 is the one that
+changes what the paper is *for*; the rest make it a pleasure to read.
 
 Read `README.md` first for how the two repos fit together.
+
+| Sprint | State |
+|---|---|
+| 1 — Since the last edition | ✅ shipped |
+| 2 — More of the paper | ✅ shipped |
+| 3 — Set in type | ✅ shipped |
+| 3½ — A voice worth reading | ✅ shipped |
+| 5 — The rest of the paper | ✅ shipped |
+| 4 — The reader's hand | ⬜ not started — the last one planned |
+
+Sprint 5 jumped the queue because it was all presentation and needed no new plumbing,
+while Sprint 4 wants cross-cutting behaviour and a decision about splitting the file.
 
 ---
 
@@ -40,9 +52,17 @@ to open, an import graph to hold in your head) for a hypothetical one. **Revisit
 Sprint 4**, which adds cross-cutting behaviour — keyboard handling, expansion state,
 routing — that genuinely wants its own module rather than more functions in a pile.
 
-Sprint 3 added about a hundred lines, so the file stands at roughly 1,300. It also added
-the first piece of render-scoped state (`motifPlan`), which is the kind of thing a module
-boundary exists to hold. Still fine as one file; still the Sprint 4 decision.
+Sprint 3 added about a hundred lines and the first piece of render-scoped state
+(`motifPlan`), which is the kind of thing a module boundary exists to hold. Sprint 5 added
+six more sections and took the file past **1,800 lines**, with a second piece of that
+state (`headlinePlan`).
+
+**Still one file, and now genuinely on the edge.** What has kept it navigable is that
+every section is one self-contained function in the order it appears on the page, so you
+can find anything by scrolling to where you'd expect to read it. That property is worth
+more than a file split, and it survives at 1,800 lines. It will not survive Sprint 4,
+which threads keyboard handling, expansion state and routing *across* those functions
+rather than adding another one. Split it there, not before.
 
 ---
 
@@ -300,23 +320,6 @@ issue, a new branch and a landed one; the synthetic edition was removed before c
 
 ---
 
-## Sprint 6 — The Crossword ⬜ next
-
-The one thing a newspaper has that nothing else does, and a real generation algorithm
-rather than a template. Notes from looking at the data:
-
-- **Don't source it from commit messages.** The week's top words are *from, merge, pull,
-  request, joseph, robert* — merge-commit noise, and only 61 commits to draw on. Build the
-  word bank from **repo names, languages and branch words**, which are clean, plentiful
-  and recognisable.
-- Clue from the numbers, so solving it means reading the data: *"Project that logged
-  eleven commits this week (8,6,9,7)"*.
-- Deterministic, like everything else: the same issue must always set the same grid.
-- Interactive but keyboard-first, and it must degrade to a printed grid — the print
-  stylesheet is the payoff and a crossword you can't solve on paper is a waste of it.
-
----
-
 ## Sprint 4 — The reader's hand
 
 **The point:** "dynamic" in the sense that matters — the page responds to you. Today it
@@ -370,8 +373,24 @@ reload, and an expanded story is still correct after switching back issues.
 - **Real AI images.** Revisit if image generation becomes available to whoever is
   working on this. The seam is one function, `engraving()`. The reasons it wasn't done
   are in `README.md`.
-- **A crossword.** Genuinely appealing, genuinely a real generation algorithm, and a
-  whole sprint on its own. Only if the paper is otherwise finished.
+- **A crossword.** Scheduled at the end of Sprint 5 and then **deliberately dropped**,
+  which is worth recording because the reason is a fact about the data rather than a
+  matter of appetite.
+
+  The obvious word bank is commit messages, and it is a bad one. Across the whole
+  preview there are 61 commits, and the most frequent words in them are *from, merge,
+  pull, request, joseph, robert* — merge-commit boilerplate and a username. Filtering
+  that out leaves a handful of terms too thin to interlock a grid from.
+
+  The fallback bank is repo names, languages and branch words. Those are clean, but
+  they are also the words printed in every headline, kicker and caption on the same
+  page, so the clues would be answerable by glancing up rather than by thinking. A
+  crossword you solve by reading the page above it is a word search.
+
+  Revisit only if the snapshot grows a genuinely richer vocabulary — issue and PR
+  *bodies*, say, which is a collector change and a lot more text to carry. Until then
+  the interesting version of this doesn't exist, and the version that does exist isn't
+  worth a sprint.
 - **Real comments as Letters.** Would need issue and PR comment bodies in the snapshot,
   which is a meaningful collector change and a lot more text to carry.
 - **Multi-page pagination.** The conceit is a *front page*. Page two is a different
