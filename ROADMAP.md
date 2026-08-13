@@ -1,9 +1,21 @@
 # Roadmap — fleshing out the broadsheet
 
-Four sprints, ordered so each one ships something you'd notice on its own. Sprint 1 is
-the one that changes what the paper is *for*; the rest make it a pleasure to read.
+Ordered so each sprint ships something you'd notice on its own. Sprint 1 is the one that
+changes what the paper is *for*; the rest make it a pleasure to read.
 
 Read `README.md` first for how the two repos fit together.
+
+| Sprint | State |
+|---|---|
+| 1 — Since the last edition | ✅ shipped |
+| 2 — More of the paper | ✅ shipped |
+| 3 — Set in type | ✅ shipped |
+| 3½ — A voice worth reading | ✅ shipped |
+| 5 — The rest of the paper | ✅ shipped |
+| 4 — The reader's hand | ⬜ not started — the last one planned |
+
+Sprint 5 jumped the queue because it was all presentation and needed no new plumbing,
+while Sprint 4 wants cross-cutting behaviour and a decision about splitting the file.
 
 ---
 
@@ -40,9 +52,17 @@ to open, an import graph to hold in your head) for a hypothetical one. **Revisit
 Sprint 4**, which adds cross-cutting behaviour — keyboard handling, expansion state,
 routing — that genuinely wants its own module rather than more functions in a pile.
 
-Sprint 3 added about a hundred lines, so the file stands at roughly 1,300. It also added
-the first piece of render-scoped state (`motifPlan`), which is the kind of thing a module
-boundary exists to hold. Still fine as one file; still the Sprint 4 decision.
+Sprint 3 added about a hundred lines and the first piece of render-scoped state
+(`motifPlan`), which is the kind of thing a module boundary exists to hold. Sprint 5 added
+six more sections and took the file past **1,800 lines**, with a second piece of that
+state (`headlinePlan`).
+
+**Still one file, and now genuinely on the edge.** What has kept it navigable is that
+every section is one self-contained function in the order it appears on the page, so you
+can find anything by scrolling to where you'd expect to read it. That property is worth
+more than a file split, and it survives at 1,800 lines. It will not survive Sprint 4,
+which threads keyboard handling, expansion state and routing *across* those functions
+rather than adding another one. Split it there, not before.
 
 ---
 
@@ -244,6 +264,62 @@ outright in a few browser configurations.
 
 ---
 
+## Sprint 5 — The rest of the paper ✅ shipped
+
+**The point:** a real newspaper is mostly not news. The sections around the reporting are
+what make it a paper you *read* rather than a page you scan — and every one of these
+carries data that was already in the file.
+
+### Shipped
+
+**Three fields the paper had been throwing away.** `additions`, `deletions` and
+`reviewDecision` were collected from day one and never printed. Classified ads are now
+sized by their own diff — *"a substantial undertaking — 16,984 added, 729 removed"* rather
+than *"waiting one day"* — and an **approved-but-unmerged** review sorts to the top with a
+rule down its side. That state is the most actionable thing in the dataset, somebody
+having already said yes, and the paper simply couldn't express it before.
+
+**The Editorial.** The one place the paper has an opinion. A list can state that a branch
+has waited ninety-seven days; only a leader column can say that ninety-seven days is too
+long. Rule-based, so the position follows from the numbers, with a branch for every state
+including "nothing to editorialise about, which is its own kind of good news".
+
+**In Tomorrow's Paper.** The only forward-looking thing on the page: threshold crossings
+due within the week, from dates already in the snapshot. *"Tomorrow — Pantry Pal slips
+into dormancy unless something lands."* Two threads in one project crossing the same mark
+collapse into one announcement.
+
+**Births, Marriages & Deaths.** Branches born, reviews married into the trunk, issues laid
+to rest, branches departed. The oldest column in any newspaper and a perfect fit for a
+diff.
+
+**Corrections & Clarifications.** Editions now store the two figures their forecast rested
+on, and the next day's paper marks them. It is the funniest thing on the page and it is
+also the reason the Forecast is worth reading at all.
+
+**Advertisements.** One period trade notice per language present. Pure filler, and filler
+is what separates a newspaper from a dashboard.
+
+### Watch out — the thing that caught us three times
+
+`{week, before, queue}` is stored as **arithmetic only**. The temptation is to store the
+trend label too, which puts one judgement in two files and lets them drift; `trendOf()`
+lives in the page and nowhere else. Same discipline as everything else here: editions hold
+facts, the page holds opinions.
+
+The other trap is claiming more than the data supports. *Steady* can never be marked
+wrong, so Corrections doesn't try; and an ad with no churn says "nothing at all to read"
+rather than printing "0 added, 0 removed".
+
+**Verified.** 44 render checks across six snapshot states and six shapes. Three new
+assertions — the Editorial always printing, exactly one approved ad sorting first, one
+advert per language — were each confirmed to **fail against the unfixed code** before
+being kept. Corrections and Births/Marriages/Deaths were exercised against a synthetic
+previous edition carrying a deliberately wrong forecast, a merged review, a resolved
+issue, a new branch and a landed one; the synthetic edition was removed before committing.
+
+---
+
 ## Sprint 4 — The reader's hand
 
 **The point:** "dynamic" in the sense that matters — the page responds to you. Today it
@@ -297,8 +373,24 @@ reload, and an expanded story is still correct after switching back issues.
 - **Real AI images.** Revisit if image generation becomes available to whoever is
   working on this. The seam is one function, `engraving()`. The reasons it wasn't done
   are in `README.md`.
-- **A crossword.** Genuinely appealing, genuinely a real generation algorithm, and a
-  whole sprint on its own. Only if the paper is otherwise finished.
+- **A crossword.** Scheduled at the end of Sprint 5 and then **deliberately dropped**,
+  which is worth recording because the reason is a fact about the data rather than a
+  matter of appetite.
+
+  The obvious word bank is commit messages, and it is a bad one. Across the whole
+  preview there are 61 commits, and the most frequent words in them are *from, merge,
+  pull, request, joseph, robert* — merge-commit boilerplate and a username. Filtering
+  that out leaves a handful of terms too thin to interlock a grid from.
+
+  The fallback bank is repo names, languages and branch words. Those are clean, but
+  they are also the words printed in every headline, kicker and caption on the same
+  page, so the clues would be answerable by glancing up rather than by thinking. A
+  crossword you solve by reading the page above it is a word search.
+
+  Revisit only if the snapshot grows a genuinely richer vocabulary — issue and PR
+  *bodies*, say, which is a collector change and a lot more text to carry. Until then
+  the interesting version of this doesn't exist, and the version that does exist isn't
+  worth a sprint.
 - **Real comments as Letters.** Would need issue and PR comment bodies in the snapshot,
   which is a meaningful collector change and a lot more text to carry.
 - **Multi-page pagination.** The conceit is a *front page*. Page two is a different

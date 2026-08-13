@@ -41,14 +41,50 @@ than racing it, and it skips the commit when only the timestamp moved.
 | Lead — full column width, largest engraving, two-column body | the most recently active project |
 | Second front — a third of the page each | the next two |
 | Standard — smaller engraving | remaining live projects |
-| In Brief — one line, no art | dormant projects |
+| Sleeping Soundly — one line, no art | dormant projects |
 | Stop Press — boxed, top of the rail | anything stale |
-| Classifieds — back page | open reviews, set as small ads |
-| Letters to the Editor — back page | open issues, signed off |
-| Obituaries — rail | projects that went dormant since the last edition |
+| In Tomorrow's Paper — rail | thresholds that will be crossed within the week |
+| The Editorial — rail | the paper's opinion on what most wants doing |
+| Gone to Sleep — rail | projects that went dormant since the last edition |
 | The Forecast — rail | last seven days of commits against the seven before |
+| Corrections & Clarifications — rail | yesterday's forecast, marked against what happened |
 | On This Day — rail | the same date in an older edition |
 | The Year in Weather | the commit heatmap, with month labels |
+| Classifieds — back page | open reviews as small ads, approved first, each sized by its diff |
+| Letters to the Editor — back page | open issues, signed off |
+| Births, Marriages & Deaths — back page | branches born, reviews merged, issues resolved since yesterday |
+| Advertisements — back page | one period trade notice per language present |
+
+## Three fields the paper used to throw away
+
+`additions`, `deletions` and `reviewDecision` were collected from the first day and never
+printed. They turn out to carry the most actionable information in the file.
+
+**Size.** "Waiting one day" tells you nothing about whether to open a review now or after
+lunch. *"A substantial undertaking — 16,984 added, 729 removed"* does. Every classified ad
+is now sized from its own diff, from *a quick job* up.
+
+**Approval.** A review that has been **approved and not merged** is the single most
+actionable state in the dataset — somebody already said yes and it is still sitting there.
+It now sorts to the top of the Classifieds with a rule down its side, and the Editorial
+leads on it when one exists.
+
+## The paper marks its own homework
+
+The Forecast makes a claim every day. Until now nothing ever checked it, and a prediction
+nobody marks is decoration.
+
+Each archived edition therefore stores the two figures its forecast was made from, and the
+next day's **Corrections & Clarifications** reads them back against what actually
+happened:
+
+> Yesterday this column forecast a gentler week. Thirteen further commits arrived
+> regardless. The barometer is being looked at.
+
+Editions store *arithmetic only* — `{week, before, queue}`, no trend label and no prose.
+The rule that turns those numbers into a claim lives in `trendOf()` in the page, so the
+judgement exists in exactly one place. Only *rising*, *easing* and *settled* can be marked
+wrong; *steady* is unfalsifiable and the column declines to pretend otherwise.
 
 ## The voice
 

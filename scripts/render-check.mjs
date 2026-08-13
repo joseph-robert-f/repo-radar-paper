@@ -84,6 +84,29 @@ function variants(real) {
         return { ...rest, latestCommit: commits?.[0] || null };
       }),
     },
+    // Every review state at once, so the Classifieds and the Editorial are
+    // exercised against approved, changes-requested and draft together. An
+    // approved-but-unmerged review is the state the Editorial leads on and
+    // real data may not have one for weeks.
+    reviewed: {
+      ...real,
+      repos: repos.map((r, i) => (i > 2 ? r : {
+        ...r,
+        openPRs: [{
+          number: 500 + i,
+          title: ["Harden the release path", "Tidy the loader", "Rename everything, twice"][i],
+          url: "#",
+          isDraft: i === 2,
+          reviewDecision: [ "APPROVED", "CHANGES_REQUESTED", null ][i],
+          additions: [4, 640, 17000][i],
+          deletions: [0, 120, 800][i],
+          headRef: `feat/branch-${i}`,
+          createdAt: "2026-08-01T00:00:00Z",
+          updatedAt: "2026-08-10T00:00:00Z",
+        }],
+        counts: { ...r.counts, openPRs: 1 },
+      })),
+    },
     // A lead with a commit message worth setting large. The pull quote has to
     // actually appear, or the whole feature could rot away unnoticed — today's
     // real lead legitimately may have nothing quotable, so `real` can't carry
@@ -136,6 +159,16 @@ async function probe(page) {
         .map((e) => getComputedStyle(e).display),
       engravings: [...document.querySelectorAll("figure svg")]
         .map((s) => `${s.outerHTML.length}:${s.getAttribute("aria-label")}`),
+      editorial: q(".editorial") ? q(".editorial").innerText.replace(/\s+/g, " ").trim() : null,
+      adverts: document.querySelectorAll(".advert").length,
+      // The approved review must be first in the Classifieds and carry the
+      // "awaiting collection" lead-in — it's the only ad you can act on now.
+      firstAd: q(".ad") ? q(".ad").innerText.replace(/\s+/g, " ").trim() : null,
+      readyAds: document.querySelectorAll(".ad.ready").length,
+      // A job description that says "0 added, 0 removed" is noise; jobSize()
+      // is supposed to suppress the figures when there is no churn.
+      emptyChurn: [...document.querySelectorAll(".ad .where")]
+        .filter((e) => /\b0 added, 0 removed\b/.test(e.innerText)).length,
       moving: [...document.querySelectorAll("*")]
         .filter((el) => {
           const s = getComputedStyle(el);
@@ -209,6 +242,24 @@ async function main() {
         }
         if (name === "unquotable" && p.pull) fail(where, `set an unquotable pull quote: ${p.pull}`);
         if (name === "quotable" && !p.pull) fail(where, "a quotable lead set no pull quote");
+
+        // The Editorial always runs — it has a branch for every state, and a
+        // silent one means a state fell through the bottom of the switch.
+        if (!p.editorial) fail(where, "the Editorial printed nothing");
+        // One advert per language present, so an issue with projects but no
+        // adverts means the section broke rather than had nothing to show.
+        if (name !== "empty" && !p.adverts) fail(where, "no advertisements for the languages present");
+        if (p.emptyChurn) fail(where, `${p.emptyChurn} advert(s) printing "0 added, 0 removed"`);
+        if (name === "reviewed") {
+          if (p.readyAds !== 1) fail(where, `expected exactly one approved ad, found ${p.readyAds}`);
+          if (!/awaiting collection/i.test(p.firstAd || "")) {
+            fail(where, `approved review isn't first in the Classifieds: "${(p.firstAd || "").slice(0, 60)}"`);
+          }
+          if (!/substantial undertaking|proper sitting|quick job|half an hour/i.test(p.firstAd || "")
+              && !/17,000|4 added/.test(p.firstAd || "")) {
+            fail(where, "the Classifieds don't describe the size of the job");
+          }
+        }
         if (shape.print && p.chrome.some((d) => d !== "none")) {
           fail(where, "interactive chrome is still visible in print");
         }
