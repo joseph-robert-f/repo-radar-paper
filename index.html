@@ -16,7 +16,11 @@
     --paper-2: #fcfcfb;
     --ink: #12110f;
     --ink-2: #45433e;
-    --ink-3: #7c7a73;
+    /* Secondary text — kickers, bylines, captions, the folio, the legend.
+       Was #7c7a73, which measures 3.97:1 on this paper and so misses WCAG AA
+       for normal text; the dark theme's equivalent was already fine at 5.18:1.
+       #726f66 is 4.64:1 and a barely perceptible step darker. */
+    --ink-3: #726f66;
     --rule: #c3c2b7;
     --rule-faint: #e1e0d9;
 
@@ -152,10 +156,49 @@
 
   .body p { margin: 0 0 9px; }
   .body p:last-child { margin-bottom: 0; }
-  .body .dateline { font-variant: small-caps; letter-spacing: 0.04em; font-weight: 700; }
+  .byline .dateline { font-variant: small-caps; letter-spacing: 0.06em; }
   .lead .body { columns: 2; column-gap: 24px; font-size: 15.5px; }
   .lead .body p { break-inside: avoid; }
   .second .body, .brief-story .body { font-size: 14.5px; }
+
+  /* Justified with hyphenation is what makes a column read as a column. Only
+     where the measure is wide enough — justifying a narrow column opens
+     rivers of whitespace, so the narrow breakpoint turns it back off. */
+  .body { text-align: justify; hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; }
+
+  /* Drop cap on the lead's opening paragraph. The dateline moved up into the
+     byline so this lands on prose rather than on a username. */
+  .lead .body > p:first-of-type::first-letter {
+    float: left; font-size: 3.1em; line-height: 0.82;
+    padding: 0.04em 0.09em 0 0; font-weight: 700;
+  }
+
+  /* Pull quote — the most recent commit, spanning both columns of the lead. */
+  .pullquote {
+    column-span: all; margin: 12px 0; padding: 11px 0;
+    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+    font-size: 19px; line-height: 1.35; font-style: italic; text-align: center;
+    hyphens: none;
+  }
+  .pullquote cite { display: block; font-style: normal; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3); margin-top: 6px; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  /* Jump line. Points somewhere real rather than to an imaginary page two. */
+  .jump {
+    margin-top: 10px; font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    text-align: right; column-span: all;
+  }
+  .jump a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .jump a:hover { color: var(--ink); }
+
+  /* Folio — the line every printed page carries at its foot. */
+  .folio {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    border-top: 1px solid var(--ink); margin-top: 26px; padding-top: 8px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3);
+  }
 
   figure { margin: 0 0 12px; }
   figure svg { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: var(--paper-2); }
@@ -331,12 +374,61 @@
   @media (max-width: 560px) {
     .sheet { padding: 18px 14px 54px; }
     .lede { font-size: 16.5px; text-align: left; }
+    /* A justified column this narrow is all rivers. Back to ragged right. */
+    .body { text-align: left; hyphens: manual; }
+    .pullquote { font-size: 17px; }
+  }
+
+  /* ---------------- the printed edition ----------------
+     The payoff: Cmd-P and it comes out as a broadsheet. Interactive chrome
+     goes, colour goes, the grid holds, and stories don't break mid-headline. */
+  @media print {
+    @page { margin: 14mm; }
+    :root {
+      --paper: #fff; --paper-2: #fff;
+      --ink: #000; --ink-2: #222; --ink-3: #555;
+      --rule: #000; --rule-faint: #999;
+      --hm-0: #eee; --hm-1: #ccc; --hm-2: #999; --hm-3: #666; --hm-4: #222;
+      --recency-hot: #000; --recency-active: #444; --recency-idle: #888; --recency-dormant: #bbb;
+      --status-warning: #000; --status-critical: #000;
+    }
+    body { background: #fff; font-size: 10.5pt; }
+    .sheet { max-width: none; padding: 0; }
+    .mast-top, #tip { display: none !important; }
+    /* Keep the back-issue notice — a printed back issue should say so — but
+       drop the button, which is dead on paper. */
+    .backnotice button { display: none; }
+    .nameplate .radar .sweep { animation: none; }
+    .press { grid-template-columns: 2.2fr 1fr; }
+    .box { break-inside: avoid; }
+    article { break-inside: avoid; }
+    h2.hed { break-after: avoid; }
+    figure { break-inside: avoid; }
+    /* A year of weather is ~570px wide on screen and lives in a scroller. Paper
+       doesn't scroll, and the printed rail is a third of an A4 page, so shrink
+       the cells to fit rather than clipping months off the left-hand edge.
+       grid-template-columns is set inline per week count, hence !important;
+       grid-auto-columns then sizes the same track regardless of the count. */
+    .hm-scroll { overflow: hidden; }
+    .hm-months {
+      grid-template-columns: none !important; grid-auto-columns: 3px;
+      gap: 1px; font-size: 6px; letter-spacing: 0; height: 9px;
+    }
+    .hm { grid-template-rows: repeat(7, 3px); gap: 1px; }
+    .hm i, .hm-legend i { width: 3px; height: 3px; }
+    .hm-legend { font-size: 8px; gap: 3px; }
+    /* Give the reader the destination, since a printed link can't be clicked. */
+    .jump a::after { content: " (" attr(href) ")"; font-size: 8pt; letter-spacing: 0; text-transform: none; }
+    .folio { break-before: avoid; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .nameplate .radar .sweep { animation: none; }
     .hm i { transition: none; }
     .hm i[data-d]:hover { transform: none; }
+    /* The heatmap tooltip's 90ms fade was missed when this block was written.
+       The rule is that everything that moves is switched off here, so it is. */
+    #tip { transition: none; }
   }
 </style>
 </head>
@@ -389,6 +481,7 @@
       </div>
     </div>
 
+    <div class="folio" id="folio"></div>
     <footer id="colophon"></footer>
   </div>
 </div>
@@ -433,6 +526,38 @@ const Spell = (n) => { const w = spell(n); return w[0].toUpperCase() + w.slice(1
 const plural = (n, one, many) => `${spell(n)} ${n === 1 ? one : many || one + "s"}`;
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const Plural = (n, one, many) => cap(plural(n, one, many));
+
+/**
+ * One number format per sentence.
+ *
+ * spell() gives words up to twenty and numerals above, so a sentence mixing
+ * both — "Eighteen commits against 33" — reads like a typo. Hand this every
+ * figure the sentence will use and it picks one form for all of them. The
+ * Forecast and On This Day each grew their own version of this; it belongs
+ * here once.
+ */
+function numerals(...ns) {
+  // Ignore the figures a given sentence doesn't use. Callers pass everything
+  // the angle *might* carry, and an absent one is undefined — treating that as
+  // "too big to spell" once tipped whole sentences into numerals over a
+  // number that was never printed.
+  const words = ns.filter(Number.isFinite).every((x) => x <= 20);
+  const n = (x) => (words ? spell(x) : String(x));
+  const p = (x, one, many) => `${n(x)} ${x === 1 ? one : many || one + "s"}`;
+  return { n, N: (x) => cap(n(x)), p, P: (x, one, many) => cap(p(x, one, many)) };
+}
+
+/**
+ * "a" or "an", for the handful of language names where the letter is spoken
+ * rather than the word — "an HTML project", not "a HTML project", because it
+ * is pronounced aitch. Falls back to the ordinary vowel rule.
+ */
+const SPOKEN_VOWEL = /^(HTML|R|S|SCSS|SQL|F|L|M|N|X|Objective-C|Elixir)$/i;
+const article = (w) => {
+  const s = String(w || "").trim();
+  if (!s) return "a";
+  return SPOKEN_VOWEL.test(s) || /^[aeiou]/i.test(s) ? "an" : "a";
+};
 // Two-letter fragments in repo names are almost always initialisms — "ai", "ui",
 // "db" — so set them full caps rather than "Ai".
 const titleCase = (s) => s.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim()
@@ -514,6 +639,82 @@ function motif(kind, r, W, H) {
 }
 
 /**
+ * Which woodcut a project gets.
+ *
+ * Keyed off language, so the picture has some bearing on the subject — a cog
+ * for a Python pipeline, a skyline for a site — rather than being pure hash.
+ *
+ * Each language gets a *pair*, not a single motif, and the name hash picks
+ * within it. Keying on language alone was tried first and looked worse than
+ * the hash it replaced: four of this account's projects are TypeScript, so
+ * four articles in a row carried the same drawing. The first of each pair is
+ * the language's emblem, the second a companion that keeps a page of one
+ * language from being a page of one picture. Unknown languages fall back to
+ * the hash across all six.
+ *
+ * Deterministic either way: same repo name, same engraving, every load.
+ */
+const MOTIF_BY_LANGUAGE = {
+  Python: [4, 3], Ruby: [4, 1], Go: [4, 0], Rust: [4, 0], C: [4, 2], "C++": [4, 2],
+  JavaScript: [3, 5], TypeScript: [3, 1], Elixir: [3, 5],
+  HTML: [2, 5], CSS: [2, 0], SCSS: [2, 0], Astro: [2, 3], Svelte: [2, 3], Vue: [2, 3],
+  Swift: [0, 2], Kotlin: [0, 4], Java: [0, 4], "Objective-C": [0, 2],
+  Shell: [1, 4], Lua: [1, 3], Perl: [1, 5], Nix: [1, 4],
+  "Jupyter Notebook": [5, 3], R: [5, 1], Julia: [5, 3],
+};
+/** Index-aligned with motif()'s six branches, for captions and alt text. */
+const MOTIF_NAMES = ["a ridgeline", "a swell", "a skyline", "an orbit", "a cog", "a canopy"];
+
+/**
+ * Motifs for the whole issue, decided together rather than one repo at a time.
+ *
+ * Per-repo language keying alone stacked up badly: four TypeScript projects
+ * meant three orbits in the first five articles, even after each language was
+ * given a pair to choose from, because a hash mod 2 doesn't spread four items.
+ * So hand the emblems out in one pass and let each project take the best motif
+ * not already spent.
+ *
+ * Handed out in **name order, over every repo in the issue** — not in page
+ * order, and not only over the ones that get a picture. Page order is the
+ * activity ranking, which reshuffles daily, so planning against it would draw
+ * the same project differently in yesterday's paper than in today's. Name
+ * order changes only when a project is created or hidden, so an engraving
+ * holds still the way a woodblock should.
+ */
+let motifPlan = new Map();
+function planMotifs(repos) {
+  const used = new Map(), plan = new Map();
+  const count = (k) => used.get(k) || 0;
+  // Projects whose language means something go first, so an emblem lands on a
+  // project it describes rather than being taken by an untyped repo that would
+  // have been just as happy with anything.
+  const queue = [...repos].sort((a, b) =>
+    (MOTIF_BY_LANGUAGE[a.language] ? 0 : 1) - (MOTIF_BY_LANGUAGE[b.language] ? 0 : 1)
+    || a.name.localeCompare(b.name));
+
+  for (const r of queue) {
+    const seed = seedFrom(r.name);
+    // Best to worst: the language's emblem, its companion, the name's own
+    // hash, then the rest in hash-rotated order so the tail isn't always 0–5.
+    const order = Array.from({ length: 6 }, (_, i) => (seed + i) % 6);
+    const cands = [...(MOTIF_BY_LANGUAGE[r.language] || []), seed % 6, ...order];
+    const pick = cands.find((k) => count(k) === 0)
+      ?? cands.find((k) => count(k) < 2)
+      ?? cands[0];
+    used.set(pick, count(pick) + 1);
+    plan.set(r.name, pick);
+  }
+  return plan;
+}
+
+function motifFor(repo) {
+  if (motifPlan.has(repo.name)) return motifPlan.get(repo.name);
+  const pair = MOTIF_BY_LANGUAGE[repo.language];
+  const seed = seedFrom(repo.name);
+  return pair ? pair[seed % pair.length] : seed % 6;
+}
+
+/**
  * @param {object} repo
  * @param {number} h  block height — bigger stories get bigger pictures
  */
@@ -540,126 +741,452 @@ function engraving(repo, h) {
       dots.push(`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(0.5 + r() * 1.5 * heat).toFixed(2)}" fill="currentColor" opacity="${(0.14 + r() * 0.3).toFixed(2)}"/>`);
     }
   }
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Engraving for ${esc(repo.name)}" style="color:var(--ink)">
+  const kind = motifFor(repo);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="A woodcut of ${esc(MOTIF_NAMES[kind])}, standing for ${esc(repo.name)}" style="color:var(--ink)">
     <rect width="${W}" height="${H}" fill="var(--paper-2)"/>
     ${hatch.join("")}
-    ${motif(seed % 6, r, W, H)}
+    ${motif(kind, r, W, H)}
     ${dots.join("")}
   </svg>`;
 }
 
 /* ---------- the words ---------- */
-/**
- * Headlines. Several projects usually land in the same category, so each
- * category carries a few phrasings and the repo's own name picks one — a front
- * page that ran "Slows After a Busy Month" four times would read like a form
- * letter. Chosen by hash, so it's varied but never changes between loads.
- */
-function headline(r) {
-  const S = titleCase(r.name);
-  const c = r.counts;
-  const pick = (opts) => opts[seedFrom(r.name) % opts.length];
 
-  if (c.commits7d >= 10) return pick([
-    `${S} Logs ${Spell(c.commits7d)} Commits in Seven Days`,
-    `Busy Week at ${S}: ${Spell(c.commits7d)} Commits`,
-    `${Spell(c.commits7d)} Commits Land at ${S}`,
-  ]);
-  if (c.commits7d > 0 && c.openPRs > 0) return pick([
-    `${S} Presses On as ${Spell(c.openPRs)} Reviews Wait`,
-    `Work and Backlog Both Grow at ${S}`,
-    `${S} Ships While ${Spell(c.openPRs)} Reviews Queue`,
-  ]);
-  if (c.openPRs >= 3) return pick([
-    `${Spell(c.openPRs)} Reviews Pile Up at ${S}`,
-    `Review Queue Lengthens at ${S}`,
-  ]);
-  if (c.commits7d > 0) return pick([
-    `Work Continues Quietly at ${S}`,
-    `${S} Ticks Along`,
-    `Steady Hands at ${S}`,
-  ]);
-  if (c.openPRs > 0) return pick([
-    `${S} Idles With ${Plural(c.openPRs, "Review")} Outstanding`,
-    `${Plural(c.openPRs, "Review")} Await a Verdict at ${S}`,
-  ]);
-  if (r.status === "dormant") return pick([
-    `${S} Lies Quiet Since ${monthYear(r.lastActivityAt)}`,
-    `No Word From ${S} Since ${monthYear(r.lastActivityAt)}`,
-  ]);
-  if (c.commits30d > 0) return pick([
-    `${S} Slows After a Busy Month`,
-    `Quiet Week Follows a Full Month at ${S}`,
-    `${S} Rests After ${Plural(c.commits30d, "Commit")}`,
-    `The Pace Eases at ${S}`,
-  ]);
-  return pick([`${S} Holds Steady`, `Nothing Stirring at ${S}`, `${S} Stands Pat`]);
+/**
+ * What this story is *about*.
+ *
+ * Every article used to march through the same three facts in the same order —
+ * commits, then the queue, then the last message — which made twelve stories
+ * read as one story printed twelve times. An editor doesn't do that. An editor
+ * finds the most interesting true thing about each project and leads with it.
+ *
+ * So: work out the angle first, and let the headline, the deck and the opening
+ * line all follow from it. Ordered best-story-first, and every branch has to be
+ * *true*, not just plausible — the whole page is worthless the moment it
+ * flatters the data.
+ *
+ * Two things this is deliberately not. It isn't random: the angle falls out of
+ * the numbers, so the same issue always tells the same story. And it isn't
+ * relentlessly upbeat — a project that has been asleep for a year is described
+ * as asleep. The warmth is in how that's said, not in pretending otherwise.
+ */
+function angleFor(r) {
+  const c = r.counts || {};
+  const daily = Array.isArray(r.daily) ? r.daily : null;
+  const week = c.commits7d || 0, month = c.commits30d || 0;
+  const activeDays = daily ? daily.slice(-7).filter((n) => n > 0).length : 0;
+  const priorWeek = daily ? daily.slice(-14, -7).reduce((a, b) => a + b, 0) : null;
+
+  // A round number is worth marking. Only the month's total, and only when it
+  // has just crossed — otherwise every project sits on a milestone forever.
+  const milestone = month >= 25 && month % 25 <= week && week > 0 ? Math.floor(month / 25) * 25 : 0;
+
+  if (week && activeDays >= 5) return { key: "streak", days: activeDays };
+  if (milestone) return { key: "milestone", at: milestone };
+  if (week && priorWeek === 0 && month > week) return { key: "returned" };
+  if (week && priorWeek !== null && week >= priorWeek * 2 && priorWeek > 0) return { key: "surge", from: priorWeek };
+  if (week && !c.openPRs && !c.openIssues) return { key: "clean" };
+  if (week && c.openPRs) return { key: "shipping" };
+  if (week) return { key: "working" };
+  if (c.openPRs >= 3) return { key: "queue" };
+  if (c.openPRs || c.openIssues) return { key: "waiting" };
+  // A thin month with branches still alive is a parked-work story, not a
+  // resting-after-a-good-month story. Calling it a well-earned rest also
+  // jarred against Stop Press, which was at the same time reporting those very
+  // branches as the oldest thing waiting.
+  if (c.branches && month < 5) return { key: "parked" };
+  if (month) return { key: "breather" };
+  if (c.branches) return { key: "parked" };
+  if (r.status === "dormant") return { key: "asleep" };
+  return { key: "settled" };
 }
 
+/**
+ * Headlines, keyed to the angle so the headline and the copy under it are
+ * telling the same story.
+ *
+ * Each angle carries several phrasings, and `planHeadlines()` makes sure the
+ * page doesn't print the same construction twice — the old version ran "The
+ * Pace Eases at …" over two adjacent stories, which reads like a form letter
+ * even though every word of it was true.
+ */
+const HEADLINES = {
+  streak: [
+    (S, a) => a.days === 7 ? `${S} Does Not Miss a Single Day` : `${S} Keeps the Presses Warm ${Spell(a.days)} Days Running`,
+    (S, a, c) => `${Plural(c.commits7d, "Commit")} Across ${Spell(a.days)} Days at ${S}`,
+    (S) => `A Full Week's Work at ${S}`,
+    (S) => `${S} Sets the Pace`,
+    (S, a) => a.days === 7 ? `Every Day This Week Brought Something to ${S}` : `${Spell(a.days)} Days Running at ${S}`,
+  ],
+  milestone: [
+    (S, a) => `${S} Passes ${a.at} Commits for the Month`,
+    (S, a) => `${a.at} Commits and Counting at ${S}`,
+    (S, a) => `A Round ${a.at} for ${S}`,
+    (S, a) => `${S} Clocks Up ${a.at} Commits`,
+  ],
+  returned: [
+    (S) => `${S} Wakes Up Swinging`,
+    (S, a, c) => `Back in Business: ${Plural(c.commits7d, "Commit")} at ${S}`,
+    (S) => `The Lights Are On Again at ${S}`,
+    (S) => `${S} Returns to the Bench`,
+  ],
+  surge: [
+    (S, a, c) => `${S} Doubles Its Pace — ${Spell(c.commits7d)} Commits This Week`,
+    (S, a, c) => `Something Has Got Into ${S}: ${Spell(c.commits7d)} Commits`,
+    (S) => `A Fine Turn of Speed at ${S}`,
+    (S) => `${S} Finds a Second Wind`,
+  ],
+  clean: [
+    (S, a, c) => `${S} Ships ${Plural(c.commits7d, "Commit")} and Leaves a Clear Desk`,
+    (S) => `All Landed, Nothing Waiting at ${S}`,
+    (S, a, c) => `${Plural(c.commits7d, "Commit")} In, Nothing Outstanding at ${S}`,
+    (S) => `A Tidy Week's Work at ${S}`,
+    (S) => `${S} Leaves the Bench Swept`,
+  ],
+  shipping: [
+    (S, a, c) => `${S} Ships On While ${Plural(c.openPRs, "Review")} Wait Their Turn`,
+    (S, a, c) => `Good Week at ${S}, With ${Plural(c.openPRs, "Review")} Still to Read`,
+    (S, a, c) => `${Spell(c.commits7d)} Commits Land at ${S}; the Queue Holds`,
+    (S) => `Both Hands Full at ${S}`,
+  ],
+  working: [
+    (S) => `Steady Hands at ${S}`,
+    (S) => `${S} Ticks Along Nicely`,
+    (S) => `Quiet, Useful Progress at ${S}`,
+    (S) => `${S} Keeps Its Own Good Pace`,
+    (S, a, c) => `${Plural(c.commits7d, "Commit")} the Better at ${S}`,
+  ],
+  queue: [
+    (S, a, c) => `${Plural(c.openPRs, "Review")} Ready and Waiting at ${S}`,
+    (S, a, c) => `A Good Afternoon's Reading at ${S}: ${Plural(c.openPRs, "Review")}`,
+    (S) => `The Review Desk Is Well Stocked at ${S}`,
+    (S) => `${S} Has Reading to Offer`,
+  ],
+  waiting: [
+    (S, a, c) => `${S} Holds ${Plural(c.openPRs || c.openIssues, "Thread")} Open`,
+    (S) => `One for the Next Free Hour: ${S}`,
+    (S) => `${S} Waits on a Verdict`,
+    (S) => `A Small Errand Outstanding at ${S}`,
+  ],
+  breather: [
+    (S, a, c) => `${S} Takes a Breather After ${Plural(c.commits30d, "Commit")}`,
+    (S) => `A Well-Earned Quiet Week at ${S}`,
+    (S, a, c) => `${Plural(c.commits30d, "Commit")} Banked, ${S} Rests`,
+    (S) => `${S} Puts Its Feet Up`,
+    (S) => `Nothing Doing at ${S}, and Quite Right Too`,
+    (S) => `${S} Coasts a While`,
+  ],
+  parked: [
+    (S, a, c) => `${Plural(c.branches, "Branch", "Branches")} Parked and Ready at ${S}`,
+    (S) => `${S} Keeps Its Powder Dry`,
+    (S) => `Work in Waiting at ${S}`,
+    (S) => `${S} Has Something Warming Up`,
+  ],
+  asleep: [
+    (S, a, c, r) => `${S} Sleeps Soundly Since ${monthYear(r.lastActivityAt)}`,
+    (S, a, c, r) => `${S} Rests, Untouched Since ${monthYear(r.lastActivityAt)}`,
+    (S) => `${S} Awaits Its Next Chapter`,
+    (S) => `${S} Dreams On`,
+    (S, a, c, r) => `Not a Sound From ${S} Since ${monthYear(r.lastActivityAt)}`,
+  ],
+  settled: [
+    (S) => `${S} Holds Steady`,
+    (S) => `All Quiet and All Well at ${S}`,
+    (S) => `${S} Sits Tight`,
+    (S) => `${S} Needs Nothing Today`,
+    (S) => `Contentment at ${S}`,
+  ],
+};
+
+/**
+ * Which phrasing each story gets, decided for the page rather than per story.
+ *
+ * Same trick as planMotifs(), and for the same reason: hashing per repo is
+ * varied on average and repetitive in practice. Here it runs in page order —
+ * the lead gets first pick — because unlike a woodcut, a headline is *supposed*
+ * to change when the data does, so there's nothing to hold still across issues.
+ */
+let headlinePlan = new Map();
+function planHeadlines(repos) {
+  const used = new Map(), plan = new Map();   // angle -> Set of forms spent
+  for (const r of repos) {
+    const angle = angleFor(r);
+    const forms = HEADLINES[angle.key] || HEADLINES.settled;
+    if (!used.has(angle.key)) used.set(angle.key, new Set());
+    let spent = used.get(angle.key);
+    // Six phrasings don't cover eight quiet projects. When an angle runs dry,
+    // start the cycle again rather than letting the hash pile every remaining
+    // story onto whichever form it happens to land on — that's how two
+    // adjacent stories both came out as "A Well-Earned Quiet Week at …".
+    if (spent.size >= forms.length) { spent = new Set(); used.set(angle.key, spent); }
+    const seed = seedFrom(r.name);
+    let idx = seed % forms.length;
+    for (let i = 0; i < forms.length; i++) {
+      const t = (seed + i) % forms.length;
+      if (!spent.has(t)) { idx = t; break; }
+    }
+    spent.add(idx);
+    plan.set(r.name, { angle, idx });
+  }
+  return plan;
+}
+
+function headline(r) {
+  const planned = headlinePlan.get(r.name);
+  const angle = planned?.angle || angleFor(r);
+  const forms = HEADLINES[angle.key] || HEADLINES.settled;
+  const idx = planned ? planned.idx : seedFrom(r.name) % forms.length;
+  return forms[idx](titleCase(r.name), angle, r.counts || {}, r);
+}
+
+/**
+ * The deck under the headline. It reports the standing state — what's open —
+ * so it complements the headline's angle rather than repeating it.
+ */
 function deck(r) {
   const c = r.counts, bits = [];
   if (c.openPRs) bits.push(plural(c.openPRs, "open review"));
   if (c.openIssues) bits.push(plural(c.openIssues, "open issue"));
   if (c.branches) bits.push(plural(c.branches, "live branch", "live branches"));
-  if (!bits.length) bits.push("nothing outstanding");
+  const clear = [
+    "a clear desk", "nothing waiting", "the decks clear", "not a thing outstanding",
+  ][seedFrom(r.name + "deck") % 4];
+  if (!bits.length) bits.push(clear);
   return cap(`${bits.join(", ")} — last touched ${relTime(r.lastActivityAt)}.`);
 }
 
-function bodyCopy(r, user) {
-  const c = r.counts, ps = [];
+/**
+ * The opening line, written to the angle. This is the sentence that stops
+ * every story reading the same way.
+ *
+ * A note on the quiet ones. "No commits have landed in thirty days" is
+ * accurate and it is also the voice of a disappointed schoolmaster, which is a
+ * strange thing for a page about your own hobby projects to be. These say the
+ * same fact warmly. What they never do is imply work happened when it didn't.
+ */
+function openingLine(r, angle) {
+  const c = r.counts || {};
   const S = titleCase(r.name);
+  const pick = (opts) => opts[seedFrom(r.name + angle.key) % opts.length];
+  const week = c.commits7d || 0, month = c.commits30d || 0;
+  // One number format per sentence — see numerals().
+  const { n, N, p, P } = numerals(week, month, angle.days, angle.at, angle.from, c.openPRs, c.branches);
+
+  switch (angle.key) {
+    case "streak": return angle.days === 7
+      ? pick([
+          `Every one of the last seven days brought something — ${p(week, "commit")} in all, and ${n(month)} across the month.`,
+          `Not a day missed: commits on all seven, ${p(week, "commit")} altogether.`,
+        ])
+      : pick([
+          `${N(angle.days)} of the last seven days brought commits — ${p(week, "commit")} in all, with ${n(month)} across the month.`,
+          `Somebody has been enjoying themselves: commits on ${p(angle.days, "day")} of the past seven, ${n(week)} altogether.`,
+        ]);
+    case "milestone": return pick([
+      `The month's ${p(month, "commit")} carry ${S} past ${angle.at} — a round number worth noticing on the way through.`,
+      `${P(month, "commit")} this month, ${n(week)} of them in the past week, and the ${angle.at} mark gone by.`,
+    ]);
+    case "returned": return pick([
+      `After a fortnight's silence ${S} is back at it, with ${p(week, "commit")} this week.`,
+      `The quiet spell is over: ${p(week, "commit")} landed this week after a week of none.`,
+    ]);
+    case "surge": return pick([
+      `A markedly better week — ${p(week, "commit")} against ${n(angle.from)} the week before.`,
+      `${P(week, "commit")} this week, up from ${n(angle.from)}. Something has caught light.`,
+    ]);
+    case "clean": return pick([
+      `${P(week, "commit")} landed this week and every one of them is in; nothing is left waiting.`,
+      `A tidy week: ${p(week, "commit")} shipped, nothing outstanding behind them.`,
+    ]);
+    case "shipping": return pick([
+      `${P(week, "commit")} landed this week, with ${p(c.openPRs, "review")} still to read.`,
+      `Work and reading both: ${p(week, "commit")} in, ${p(c.openPRs, "review")} open.`,
+    ]);
+    case "working": return pick([
+      `${P(week, "commit")} this week, ${n(month)} across the month — the steady kind of progress.`,
+      `Progress continues at a comfortable pace: ${p(week, "commit")} this week.`,
+    ]);
+    case "queue": return pick([
+      `${P(c.openPRs, "review")} are stacked and ready, which is an hour's work and a good hour at that.`,
+      `The reading pile stands at ${p(c.openPRs, "review")} — nothing broken, just waiting on a verdict.`,
+    ]);
+    case "waiting": return pick([
+      `${P(c.openPRs || c.openIssues, "thread")} sits open, ready whenever there's a free evening.`,
+      `One open thread here, patiently holding its place.`,
+    ]);
+    // "A productive month" over a single commit is flattery, and the moment a
+    // page flatters you it stops being worth reading. Only claim a good month
+    // when there was one.
+    case "breather": return month >= 5
+      ? pick([
+          `A quiet week after a productive month — ${p(month, "commit")} banked, and nothing pressing.`,
+          `The month brought ${p(month, "commit")}; this week brought a rest, which is also allowed.`,
+        ])
+      : pick([
+          `${P(month, "commit")} this month and none this week — ticking over rather than racing.`,
+          `A gentle month: ${p(month, "commit")}, and a week off after it.`,
+        ]);
+    case "parked": return pick([
+      `Nothing has landed lately, but ${p(c.branches, "branch", "branches")} ${c.branches === 1 ? "sits" : "sit"} parked and ready to go.`,
+      `Work is waiting rather than gone: ${p(c.branches, "branch", "branches")} still alive here.`,
+    ]);
+    case "asleep": return pick([
+      `${S} has been resting since ${monthYear(r.lastActivityAt)}, none the worse for it.`,
+      `Untouched since ${monthYear(r.lastActivityAt)} — sleeping soundly, and here when it's wanted.`,
+    ]);
+    default: return pick([
+      `Nothing has moved in a month, and nothing needs to.`,
+      `All quiet, and all well — no commits lately and nothing waiting.`,
+    ]);
+  }
+}
+
+function bodyCopy(r, tier) {
+  const c = r.counts, ps = [];
+  const angle = headlinePlan.get(r.name)?.angle || angleFor(r);
+  // The dateline used to open this paragraph. It moved up into the byline so
+  // the lead's drop cap lands on prose rather than on the first letter of a
+  // username — "j" of joseph-robert-f, set three lines tall.
   const first = [];
-  first.push(`<span class="dateline">${esc(user)} —</span>`);
   // Repo descriptions rarely end in punctuation; without this the next
-  // sentence runs straight into them.
-  const stop = (s) => (/[.!?]$/.test(s.trim()) ? esc(s.trim()) : esc(s.trim()) + ".");
+  // sentence runs straight into them. The ellipsis case matters too: the
+  // collector truncates long commit subjects with "…", and "…." reads as a
+  // typo.
+  const stop = (s) => (/[.!?…]$/.test(s.trim()) ? esc(s.trim()) : esc(s.trim()) + ".");
   first.push(r.description
     ? stop(r.description)
-    : `The ${esc(r.language || "untyped")} project known as ${esc(r.name)} carries no description of itself.`);
-  if (c.commits7d) {
-    first.push(`${Spell(c.commits7d)} ${c.commits7d === 1 ? "commit has" : "commits have"} landed in the past week, ${spell(c.commits30d)} in the month.`);
-  } else if (c.commits30d) {
-    first.push(`Nothing has landed this week, though ${plural(c.commits30d, "commit")} arrived over the month.`);
-  } else {
-    first.push(`No commits have landed in thirty days.`);
-  }
+    // "carries no description of itself" was doing a lot of tutting. A project
+    // without a README blurb is a perfectly good project.
+    : [
+        `${cap(article(r.language))} ${esc(r.language || "quietly untyped")} project that lets its commits do the talking.`,
+        `${esc(titleCase(r.name))}, in ${esc(r.language || "no language it will admit to")}, and no blurb to go with it.`,
+        `No description on file — ${esc(titleCase(r.name))} prefers to be judged on the work.`,
+        `${esc(titleCase(r.name))} keeps its own counsel; there is no summary to quote.`,
+      ][seedFrom(r.name + "nodesc") % 4]);
+  first.push(openingLine(r, angle));
   ps.push(first.join(" "));
 
-  const second = [];
-  if (c.openPRs) {
-    second.push(`${Spell(c.openPRs)} ${c.openPRs === 1 ? "review remains" : "reviews remain"} open${
-      r.openPRs[0] ? `, the foremost being <em>${esc(r.openPRs[0].title)}</em>` : ""}.`);
+  // The standing facts, minus whatever the opening line already covered — the
+  // second paragraph shouldn't restate the first in different words. Order
+  // rotates by name so the page doesn't march reviews-issues-branches twelve
+  // times over.
+  const said = { commits: true, prs: false, issues: false, branches: false };
+  if (angle.key === "shipping" || angle.key === "queue" || angle.key === "waiting") said.prs = true;
+  if (angle.key === "parked") said.branches = true;
+
+  const facts = [];
+  if (c.openPRs && !said.prs) {
+    facts.push(`${Spell(c.openPRs)} ${c.openPRs === 1 ? "review is" : "reviews are"} open${
+      r.openPRs?.[0] ? `, led by <em>${esc(r.openPRs[0].title)}</em>` : ""}.`);
+  } else if (c.openPRs && r.openPRs?.[0]) {
+    facts.push(`First in the queue: <em>${esc(r.openPRs[0].title)}</em>.`);
   }
-  if (c.openIssues) second.push(`${Spell(c.openIssues)} ${c.openIssues === 1 ? "issue stands" : "issues stand"} unresolved.`);
-  if (c.branches) {
-    second.push(`${Spell(c.branches)} ${c.branches === 1 ? "branch lives" : "branches live"} apart from ${esc(r.defaultBranch || "the trunk")}.`);
+  if (c.openIssues && !said.issues) {
+    facts.push(`${Spell(c.openIssues)} ${c.openIssues === 1 ? "issue is" : "issues are"} still open for the taking.`);
   }
-  if (!second.length) second.push(`Nothing is presently outstanding; the trunk stands clear.`);
-  ps.push(second.join(" "));
+  if (c.branches && !said.branches) {
+    facts.push(`${Spell(c.branches)} ${c.branches === 1 ? "branch runs" : "branches run"} alongside ${esc(r.defaultBranch || "the trunk")}.`);
+  }
+  // Rotate: same set of facts, different order per project, stable per project.
+  if (facts.length > 1) {
+    const k = seedFrom(r.name + "facts") % facts.length;
+    facts.push(...facts.splice(0, k));
+  }
+  // "The desk is clear here" is only true when it is. When facts is empty
+  // because the opening line already covered them — a parked project's
+  // branches, say — there is nothing left to add, and claiming a clean sheet
+  // would contradict Stop Press reporting those very branches as the oldest
+  // thing waiting. In that case the paragraph simply doesn't run.
+  const genuinelyClear = !c.openPRs && !c.openIssues && !c.branches;
+  if (!facts.length && genuinelyClear) {
+    facts.push([
+      `Nothing outstanding; the trunk is clear.`,
+      `No reviews, no issues, no stray branches — a clean sheet.`,
+      `The desk is clear here.`,
+      `Not a loose end in sight.`,
+    ][seedFrom(r.name + "clear") % 4]);
+  }
+  if (facts.length) ps.push(facts.join(" "));
 
   // Today's issue carries the full commit preview; an archived edition keeps
   // only the most recent one, to stay small. Accept either.
   const latest = r.commits?.[0] || r.latestCommit;
-  if (latest) ps.push(`Most recently: <em>${esc(latest.message)}</em>.`);
-  return ps.map((p) => `<p>${p}</p>`).join("");
+  if (latest) {
+    const m = String(latest.message).trim();
+    const opener = [
+      "Last word from the workbench:", "Most recently:", "The latest dispatch:",
+    ][seedFrom(r.name + "latest") % 3];
+    ps.push(`${opener} <em>${esc(m)}</em>${/[.!?…]$/.test(m) ? "" : "."}`);
+  }
+
+  const html = ps.map((p) => `<p>${p}</p>`).join("");
+  if (tier !== "lead") return html;
+  const quoted = quotable(r);
+  if (!quoted) return html;
+
+  const pull = `<blockquote class="pullquote">&ldquo;${esc(quoted.message)}&rdquo;
+    <cite>${esc(quoted.label)} · ${esc(r.name)}</cite></blockquote>`;
+  // Place it after the first paragraph so the drop cap isn't orphaned.
+  const cut = html.indexOf("</p>") + 4;
+  return html.slice(0, cut) + pull + html.slice(cut);
+}
+
+/**
+ * The line to set large between the lead's columns.
+ *
+ * Not simply the newest commit. Two kinds of message read as a mistake at 19px:
+ * anything long enough to wrap three times, and a merge commit — "Merge pull
+ * request #14 from joseph-robert-f/codex/service-o…" is machine bookkeeping,
+ * not something a person said about the work. So walk back through the preview
+ * for the most recent message that is actually worth quoting, and if none of
+ * them is, set no pull quote at all. A blank space is better than a bad quote.
+ *
+ * An archived edition carries only `latestCommit`, so back issues get one
+ * candidate rather than ten and will more often show nothing. That's correct:
+ * a back issue shouldn't invent a quote today's edition wouldn't have run.
+ */
+function quotable(r) {
+  const pool = r.commits?.length ? r.commits : r.latestCommit ? [r.latestCommit] : [];
+  for (let i = 0; i < pool.length; i++) {
+    const c = pool[i];
+    const m = String(c.message || "").trim().split("\n")[0].trim();
+    if (!m || m.length > 84) continue;
+    if (/^(merge|revert)\b/i.test(m)) continue;
+    if (/…$/.test(m)) continue;  // the collector truncated it; don't quote a fragment
+    // The attribution has to be true of *this* commit. An earlier draft said
+    // "From the week's commits" for anything but the newest, but the pool is
+    // the last ten commits on the default branch however old they are, so on a
+    // quiet project that line could caption a three-month-old message. Date it
+    // from the commit instead, and fall back to a claim that can't be wrong.
+    const when = Number.isFinite(Date.parse(c.date)) ? relTime(c.date) : null;
+    const label = i === 0
+      ? (when ? `Most recent commit · ${when}` : "Most recent commit")
+      : (when ? `Committed ${when}` : "An earlier commit");
+    return { message: m, label };
+  }
+  return null;
 }
 
 /* ---------- the front page ---------- */
 function stateOfTheWorld(d) {
   const s = d.summary, bits = [];
   const busiest = [...d.repos].sort((a, b) => b.counts.commits7d - a.counts.commits7d)[0];
-  if (s.commits7d === 0) bits.push("The presses were still this week — not a single commit anywhere.");
-  else if (busiest && busiest.counts.commits7d >= s.commits7d * 0.6)
-    bits.push(`${Spell(s.commits7d)} commits this week, the bulk of them at <b>${esc(titleCase(busiest.name))}</b>.`);
-  else {
-    const moving = d.repos.filter((r) => r.counts.commits7d > 0).length;
-    bits.push(`${Spell(s.commits7d)} commits this week across ${plural(moving, "project")}.`);
+  const moving = d.repos.filter((r) => r.counts.commits7d > 0).length;
+
+  if (s.commits7d === 0) {
+    bits.push("A week off across the board — not a commit anywhere, and the presses none the worse for the rest.");
+  } else if (busiest && busiest.counts.commits7d >= s.commits7d * 0.6) {
+    bits.push(`${Spell(s.commits7d)} commits this week, and <b>${esc(titleCase(busiest.name))}</b> did most of the lifting.`);
+  } else {
+    bits.push(`${Spell(s.commits7d)} commits this week across ${plural(moving, "project")} — a good spread.`);
   }
+
   const worst = d.attention[0];
   if (!worst) {
-    bits.push(`<span class="quiet">Nothing has gone stale; every open thread has moved recently.</span>`);
+    bits.push(`<span class="quiet">Not a thing gone stale: every open review, issue and branch has moved recently.</span>`);
   } else {
-    bits.push(`${Plural(d.attention.length, "matter")} await attention, the oldest for ${plural(Math.round(daysSince(worst.updatedAt)), "day")} at <b>${esc(titleCase(worst.repo))}</b>.`);
+    const days = Math.round(daysSince(worst.updatedAt));
+    bits.push(`${Plural(d.attention.length, "thread")} could use a look, the patient one having waited ${plural(days, "day")} at <b>${esc(titleCase(worst.repo))}</b>.`);
   }
   return bits.join(" ");
 }
@@ -735,12 +1262,33 @@ function sinceHTML(diff, prevDate) {
   if (diff.newRepos.length) lines.push(`<p>${Plural(diff.newRepos.length, "project")} joined the register: <b>${diff.newRepos.map((n) => esc(titleCase(n))).join(", ")}</b>.</p>`);
 
   if (!lines.length) {
-    lines.push(`<p class="none">Nothing moved. ${diff.moved.length ? `${Plural(diff.moved.length, "project")} took commits, but no reviews, issues or branches changed hands.` : "A genuinely quiet day."}</p>`);
+    lines.push(`<p class="none">${diff.moved.length
+      ? `${Plural(diff.moved.length, "project")} took fresh commits; nothing opened, closed or changed hands.`
+      : "A day of rest. Nothing opened, nothing closed, nothing to do about it."}</p>`);
   } else if (diff.moved.length) {
     lines.push(`<p class="none">${Plural(diff.moved.length, "project")} also took new commits.</p>`);
   }
 
   return `<div class="box rules since"><h3>Since ${esc(prevDate)}</h3>${lines.join("")}</div>`;
+}
+
+/**
+ * The line under an engraving.
+ *
+ * It only claims the language when the drawing actually came from it. Six
+ * motifs don't go round thirteen projects, so planMotifs() often hands a
+ * project something outside its language's pair — and a caption reading
+ * "a cog, after the HTML" is a plain untruth about how the page was made.
+ * Worse, an untyped project used to get "after the untyped", which says
+ * nothing at all. When the motif isn't the language's, the caption just names
+ * what was cut.
+ */
+function caption(r) {
+  const kind = motifFor(r);
+  const fromLanguage = (MOTIF_BY_LANGUAGE[r.language] || []).includes(kind);
+  return `An impression of ${esc(r.name)}: ${esc(MOTIF_NAMES[kind])}${
+    fromLanguage ? `, after the ${esc(r.language)}` : ""
+  }; ink weight follows activity.`;
 }
 
 function articleHTML(r, tier, user, mark) {
@@ -751,16 +1299,19 @@ function articleHTML(r, tier, user, mark) {
       mark === "new" ? `<span class="chip new">New</span>` : mark === "moved" ? `<span class="chip moved">Moved</span>` : ""}</div>
     <h2 class="hed">${link(esc(headline(r)))}</h2>
     <p class="deck">${esc(deck(r))}</p>
-    ${art ? `<figure>${engraving(r, art)}<figcaption>An impression of ${esc(r.name)}, struck from its name; ink weight follows activity.</figcaption></figure>` : ""}
-    <div class="byline">Filed by the Collector</div>
-    <div class="body">${bodyCopy(r, user)}</div>
+    ${art ? `<figure>${engraving(r, art)}<figcaption>${caption(r)}</figcaption></figure>` : ""}
+    <div class="byline">Filed by the Collector · <span class="dateline">${esc(user)}</span></div>
+    <div class="body">${bodyCopy(r, tier)}${
+      tier === "lead" && r.url
+        ? `<p class="jump"><a href="${esc(r.url)}" target="_blank" rel="noopener">Continued on the project page &rarr;</a></p>`
+        : ""}</div>
   </article>`;
 }
 
 function noticesHTML(d) {
   if (!d.attention.length) {
     return `<div class="box rules"><h3>Stop Press</h3>
-      <p class="allclear">Nothing is rotting. Every open review, assigned issue and live branch has moved recently.</p></div>`;
+      <p class="allclear">Nothing to press about. Every open review, assigned issue and live branch has moved recently — a rare and pleasant state of affairs.</p></div>`;
   }
   const rows = d.attention.map((t) => {
     const days = Math.round(daysSince(t.updatedAt));
@@ -772,7 +1323,7 @@ function noticesHTML(d) {
       <span class="n-meta">${esc(t.type)} · ${esc(t.repo)} · <span class="${cls}">waiting ${plural(days, "day")}</span></span>
     </${tag}>`;
   }).join("");
-  return `<div class="box rules"><h3>Stop Press — ${plural(d.attention.length, "matter")} waiting</h3>${rows}</div>`;
+  return `<div class="box rules"><h3>Stop Press — ${plural(d.attention.length, "thread")} waiting</h3>${rows}</div>`;
 }
 
 function weatherHTML(d) {
@@ -818,18 +1369,23 @@ function classifiedsHTML(d) {
   const ads = d.repos.flatMap((r) => (r.openPRs || []).map((p) => ({ repo: r, pr: p })));
   if (!ads.length) {
     return `<div class="secthead">Classifieds</div>
-      <p class="allclear">No positions vacant. Every review has been filled.</p>`;
+      <p class="allclear">No positions vacant — every review has found its reader. Advertise here next week.</p>`;
   }
   const rows = ads.map(({ repo, pr }) => {
     const waited = Math.round(daysSince(pr.updatedAt));
     const leadIn = pr.isDraft
-      ? "Not yet ready · work in progress"
-      : [ "Wanted — one reviewer", "Seeking — a second pair of eyes", "For review, without delay" ][seedFrom(repo.name + pr.number) % 3];
+      ? "Coming soon · work in progress"
+      : [
+          "Wanted — one reviewer, no experience necessary",
+          "Seeking — a second pair of eyes",
+          "Offered — a pleasant half hour's reading",
+          "Vacancy — one approval, immediate start",
+        ][seedFrom(repo.name + pr.number) % 4];
     return `<div class="ad">
       <span class="lead-in">${esc(leadIn)}</span>
       <a href="${esc(pr.url)}" target="_blank" rel="noopener">#${pr.number} ${esc(pr.title)}</a>
       <span class="where">${esc(repo.name)}${repo.language ? ` · ${esc(repo.language)}` : ""} · ${
-        waited < 1 ? "posted today" : `waiting ${plural(waited, "day")}`}. Apply within.</span>
+        waited < 1 ? "posted this morning" : `waiting ${plural(waited, "day")}`}. Apply within.</span>
     </div>`;
   }).join("");
   return `<div class="secthead">Classifieds <span class="count">· ${plural(ads.length, "position")} vacant</span></div>
@@ -840,14 +1396,14 @@ function lettersHTML(d) {
   const letters = d.repos.flatMap((r) => (r.openIssues || []).map((i) => ({ repo: r, issue: i })));
   if (!letters.length) {
     return `<div class="secthead">Letters to the Editor</div>
-      <p class="allclear">No correspondence this week. The postbag is empty.</p>`;
+      <p class="allclear">The postbag is empty and the editor is delighted. Not one complaint this week.</p>`;
   }
   const rows = letters.map(({ repo, issue }) => {
     const age = Math.round(daysSince(issue.createdAt));
     return `<div class="letter">
       <span class="salut">Sir —</span>
       <a href="${esc(issue.url)}" target="_blank" rel="noopener">${esc(issue.title)}</a>.
-      ${age < 1 ? "Raised today" : `Raised ${plural(age, "day")} ago`} and still standing.
+      ${age < 1 ? "Raised this morning" : `Raised ${plural(age, "day")} ago`} and awaiting its moment.
       <span class="sign">— ${issue.assigned ? "the assignee" : "a correspondent"}, ${esc(repo.name)}</span>
     </div>`;
   }).join("");
@@ -855,9 +1411,13 @@ function lettersHTML(d) {
 }
 
 /**
- * Obituaries — projects that crossed into dormant since the last edition.
- * Written gently on purpose: a repo going quiet is usually a pause, not a
- * death, and the reader may well be about to pick it back up.
+ * Gone to Sleep — projects that crossed into dormant since the last edition.
+ *
+ * This was headed "Obituaries" and read like one. A repo going quiet is a
+ * pause, not a death, and the reader is very often the person who is about to
+ * pick it back up — being condoled with over your own side project is a strange
+ * experience. Same data, warmer register, and the last line always leaves the
+ * door open.
  */
 function obituariesHTML(diff, repos) {
   const gone = (diff?.statusChanges || []).filter((s) => s.to === "dormant");
@@ -867,11 +1427,13 @@ function obituariesHTML(diff, repos) {
     const branches = r?.counts?.branches || 0;
     return `<div class="obit">
       <span class="who">${esc(s.repo)}</span>${r?.language ? `, of ${esc(r.language)}` : ""} —
-      quiet since ${esc(monthYear(r?.lastActivityAt))}.
-      ${branches ? `It leaves ${plural(branches, "branch", "branches")} behind.` : "It leaves nothing outstanding."}
+      last seen ${esc(monthYear(r?.lastActivityAt))}, now sleeping.
+      ${branches
+        ? `${Plural(branches, "branch", "branches")} left ready for whenever it stirs.`
+        : "It left everything tidy behind it."}
     </div>`;
   }).join("");
-  return `<div class="box"><h3>Obituaries</h3>${rows}</div>`;
+  return `<div class="box"><h3>Gone to Sleep</h3>${rows}</div>`;
 }
 
 /**
@@ -887,25 +1449,20 @@ function forecastHTML(d) {
   const week = sumRange(-7, undefined);
   const before = sumRange(-14, -7);
 
-  // Spelling one number and printing the other as a numeral in the same
-  // sentence reads badly, and spell() falls back to numerals above twenty. So
-  // pick one form for the pair.
-  const bothSpelled = week <= 20 && before <= 20;
-  const n = (x) => (bothSpelled ? spell(x) : String(x));
-  const N = (x) => (bothSpelled ? Spell(x) : String(x));
+  const { n, N } = numerals(week, before);
 
   let outlook;
-  if (week === 0 && before === 0) outlook = "Settled and dry. Nothing has landed in a fortnight.";
-  else if (week === 0) outlook = `Dry spell. ${N(before)} commits the week before, none since.`;
-  else if (before === 0) outlook = `Breaking out. ${N(week)} commits after a fortnight of nothing.`;
-  else if (week >= before * 1.5) outlook = `Brightening — ${N(week)} commits against ${n(before)} the week before.`;
-  else if (week * 1.5 <= before) outlook = `Easing off — ${N(week)} commits against ${n(before)} the week before.`;
-  else outlook = `Steady — ${N(week)} commits, much as the week before.`;
+  if (week === 0 && before === 0) outlook = "Set fair and perfectly still. Nothing in a fortnight, and no sign of weather.";
+  else if (week === 0) outlook = `A calm spell after ${n(before)} commits the week before. Enjoy it.`;
+  else if (before === 0) outlook = `Fine and clearing — ${N(week)} commits after a fortnight of still air.`;
+  else if (week >= before * 1.5) outlook = `Brightening handsomely — ${N(week)} commits against ${n(before)} the week before.`;
+  else if (week * 1.5 <= before) outlook = `Gentler this week: ${n(week)} commits against ${n(before)}. Nothing to batten down.`;
+  else outlook = `Steady as she goes — ${N(week)} commits, much as the week before.`;
 
   const waiting = (d.attention || []).length;
   const queue = waiting
-    ? `${Plural(waiting, "matter")} outstanding; the queue holds unless someone clears it.`
-    : `Nothing outstanding. Clear skies over the review desk.`;
+    ? `${Plural(waiting, "thread")} waiting; a spare afternoon would clear the lot.`
+    : `Clear skies over the review desk, and not a thing outstanding.`;
 
   return `<div class="box forecast"><h3>The Forecast</h3>
     <span class="glass">Set by the glass, not by hope</span>
@@ -926,16 +1483,11 @@ function onThisDayHTML(index, todayISO) {
     const key = new Date(today - days * 86400000).toISOString().slice(0, 10);
     const g = digest[key];
     if (!g) continue;
-    // One form per sentence: spell() gives numerals above twenty, so if any
-    // figure here is large, print them all as numerals.
-    const all = [g.commits7d, g.repos, g.openPRs, g.needsAttention];
-    const p2 = all.every((x) => x <= 20)
-      ? (n, one, many) => plural(n, one, many)
-      : (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
+    const { p } = numerals(g.commits7d, g.repos, g.openPRs, g.needsAttention);
     return `<div class="box onthis"><h3>On This Day</h3>
-      <p><b>${esc(label)}</b> — ${p2(g.commits7d, "commit")} that week across
-      ${p2(g.repos, "project")}, ${p2(g.openPRs, "review")} open and
-      ${p2(g.needsAttention, "matter")} waiting.</p></div>`;
+      <p><b>${esc(label)}</b> — ${p(g.commits7d, "commit")} that week across
+      ${p(g.repos, "project")}, ${p(g.openPRs, "review")} open and
+      ${p(g.needsAttention, "thread")} waiting.</p></div>`;
   }
   return "";
 }
@@ -952,10 +1504,33 @@ function showTip(e, text) {
 }
 const hideTip = () => (tip.style.opacity = "0");
 
+/* ---------- theme ----------------------------------------------------------
+   Three states, in the order the CSS resolves them: no attribute means follow
+   the operating system, and data-theme="light"/"dark" overrides it. The choice
+   is remembered, because a reader who turns the lights down once should not
+   have to do it again on every load — it used to reset on refresh.
+
+   localStorage is wrapped because it throws outright in a few configurations
+   (Safari private browsing, third-party iframes with storage blocked). The
+   paper works perfectly well without a memory; it just forgets. */
+const THEME_KEY = "repo-radar-paper:theme";
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* nothing to do */ } },
+};
+
+// Applied before the paper is set, so there's no flash of the wrong theme.
+const savedTheme = store.get(THEME_KEY);
+if (savedTheme === "light" || savedTheme === "dark") {
+  document.documentElement.setAttribute("data-theme", savedTheme);
+}
+
 $("#themeToggle").addEventListener("click", () => {
   const cur = document.documentElement.getAttribute("data-theme");
   const sysDark = matchMedia("(prefers-color-scheme: dark)").matches;
-  document.documentElement.setAttribute("data-theme", cur ? (cur === "dark" ? "light" : "dark") : (sysDark ? "light" : "dark"));
+  const next = cur ? (cur === "dark" ? "light" : "dark") : (sysDark ? "light" : "dark");
+  document.documentElement.setAttribute("data-theme", next);
+  store.set(THEME_KEY, next);
 });
 
 /* ---------- setting the page ----------------------------------------------
@@ -989,10 +1564,15 @@ function setPage(d, { diff, prevDate, backIssue, index } = {}) {
   const seconds = restLive.slice(0, 2);
   const rest = restLive.slice(2);
   const mark = (r) => diff?.perRepo.get(r.name);
+  // Engravings are handed out for the whole issue before any article is set,
+  // so the page doesn't repeat a drawing it needn't. Headlines the same, in
+  // page order so the lead gets first pick of its angle's phrasings.
+  motifPlan = planMotifs(d.repos);
+  headlinePlan = planHeadlines(lead ? [lead, ...restLive, ...dormant] : dormant);
 
   $("#colMain").innerHTML = lead
     ? articleHTML(lead, "lead", d.user, mark(lead))
-    : `<p class="lede">No public repositories to report.</p>`;
+    : `<p class="lede">A blank front page, and a rare thing it is. No public projects to report on today.</p>`;
 
   $("#colRail").innerHTML =
     (backIssue ? "" : sinceHTML(diff, prevDate))
@@ -1002,16 +1582,16 @@ function setPage(d, { diff, prevDate, backIssue, index } = {}) {
     + weatherHTML(d)
     + (backIssue ? "" : onThisDayHTML(index, String(d.generatedAt || d.date).slice(0, 10)))
     + (dormant.length
-      ? `<div class="box"><h3>In Brief</h3>${dormant.map((r) => `
+      ? `<div class="box"><h3>Sleeping Soundly</h3>${dormant.map((r) => `
           <div class="brief-item">
             <span class="bi-name">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</span>
-            <span class="bi-meta"> — quiet since ${esc(monthYear(r.lastActivityAt))}.</span>
+            <span class="bi-meta"> — undisturbed since ${esc(monthYear(r.lastActivityAt))}.</span>
           </div>`).join("")}</div>`
       : "");
 
   $("#belowGrid").innerHTML = [...seconds.map((r) => articleHTML(r, "second", d.user, mark(r))),
     ...rest.map((r) => articleHTML(r, "brief", d.user, mark(r)))].join("")
-    || `<p>Nothing further to report.</p>`;
+    || `<p>That's the whole of the news today, and a pleasant sort of news it is.</p>`;
 
   $("#backpage").classList.remove("hidden");
   $("#classifieds").innerHTML = classifiedsHTML(d);
@@ -1029,9 +1609,12 @@ function setPage(d, { diff, prevDate, backIssue, index } = {}) {
     hm.addEventListener("mouseleave", hideTip);
   }
 
+  $("#folio").innerHTML =
+    `<span>The Repo Radar</span><span>${esc(longDate(stamp))}</span><span>Page One</span>`;
+
   $("#colophon").innerHTML =
     `The Repo Radar is set from <code>data/snapshot.json</code>, gathered every six hours by <a href="https://github.com/joseph-robert-f/repo-radar">repo-radar</a>.<br>
-     Private repositories are not collected. Engravings are struck deterministically from each project's name.<br>
+     Private repositories are not collected. Engravings are struck deterministically: the subject follows the project's language, the cutting follows its name.<br>
      Impression taken ${esc(stamp)}. <a href="https://joseph-robert-f.github.io/repo-radar/">The data view</a> remains available to subscribers.`;
   scrollTo({ top: 0, behavior: "instant" });
 }

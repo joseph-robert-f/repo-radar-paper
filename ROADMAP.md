@@ -40,6 +40,10 @@ to open, an import graph to hold in your head) for a hypothetical one. **Revisit
 Sprint 4**, which adds cross-cutting behaviour — keyboard handling, expansion state,
 routing — that genuinely wants its own module rather than more functions in a pile.
 
+Sprint 3 added about a hundred lines, so the file stands at roughly 1,300. It also added
+the first piece of render-scoped state (`motifPlan`), which is the kind of thing a module
+boundary exists to hold. Still fine as one file; still the Sprint 4 decision.
+
 ---
 
 ## Sprint 1 — Since the last edition ✅ shipped
@@ -142,7 +146,7 @@ positions, three letters), at 1250px and 390px. No overflow, no console errors, 
 
 ---
 
-## Sprint 3 — Set in type
+## Sprint 3 — Set in type ✅ shipped
 
 **The point:** the layout is a newspaper but the typography is only halfway there. This
 is the sprint that makes it look *printed*.
@@ -167,6 +171,76 @@ It prints legibly on A4 and US Letter; columns justify without rivers at 390px a
 1250px; every engraving still renders identically for the same repo name.
 
 **Size:** medium. Pure presentation, no data changes, low risk.
+
+**Shipped.** All seven. Four notes worth keeping.
+
+**The lead had no commits to quote.** `repo-radar-paper` was leading its own paper: every
+commit in it is the bot filing an edition, bot commits are filtered out, so it carried
+zero commits — a top story with nothing to report and nothing to pull-quote. Same cause
+as `repo-radar` hiding itself. Fixed over in `repo-radar` by adding this repo to `hide`;
+the rule now written down there is that anything whose only commits come from this
+pipeline belongs in that list.
+
+**A pull quote is a choice, not the newest row.** The first version quoted the most recent
+commit and got *"Merge pull request #14 from joseph-robert-f/codex/service-o…"* set at
+19px between the columns — machine bookkeeping, not something a person said. `quotable()`
+now walks back through the week for the most recent message that isn't a merge, a revert,
+a truncated fragment, or over 84 characters, and sets nothing at all if none qualifies.
+
+**Language-keyed motifs made the page *less* varied, twice.** Keying each motif on
+language put an orbit on four of this account's projects, because four of them are
+TypeScript. Giving each language a pair and hashing between them still landed three
+orbits in the first five articles — a hash mod 2 doesn't spread four items. What works is
+planning the whole issue in one pass, in name order over every project, letting each take
+the best motif not yet spent. Name order matters: page order is the activity ranking and
+reshuffles daily, so planning against it would redraw a project between issues.
+
+**The heatmap doesn't print.** It's 570px of fixed-size cells inside a scroller, and the
+printed rail is a third of an A4 page, so it ran 218px off the edge. Print shrinks the
+cells to 3px rather than clipping months off the left.
+
+Verified with Playwright against real, all-quiet, over-long-quote and nothing-at-all
+snapshots, at 1250px, 390px, A4 and US Letter widths in print media, light and dark: no
+console errors, no NaN, no horizontal overflow in any of the twenty combinations. Motif
+assignment confirmed identical across two loads of the same issue and across a
+deliberately reordered one.
+
+---
+
+## Sprint 3½ — A voice worth reading ✅ shipped
+
+Not originally on the list. It came out of the QA pass on Sprint 3: the typography was
+right and the page still read like a status report written by someone having a bad week.
+
+**Every story now has an angle.** `angleFor()` picks the most interesting true thing
+about a project — streak, milestone, waking up, a surge, a clean desk, a queue, a rest,
+parked work, sleeping — and the headline, the opening line and the fact ordering all
+follow from it. Each angle carries four to six phrasings and `planHeadlines()` spreads
+them across the page, restarting the cycle when an angle has more projects than forms.
+
+**The register warmed up throughout** — the lede, Stop Press, Classifieds, Letters, the
+Forecast, the empty states, and *Obituaries*, which is now *Gone to Sleep* because being
+condoled with over your own side project is a strange experience.
+
+What kept catching us out was the difference between cheerful and untrue. Four separate
+fixes, all the same mistake:
+
+- "A quiet week after a **productive** month" fired on a month with one commit.
+- "**The desk is clear here**" printed for a project whose two branches Stop Press was
+  simultaneously reporting as the oldest thing waiting.
+- "A Well-Earned Quiet Week at …" ran on a project whose branches had sat 96 days —
+  fixed by preferring the *parked* angle over *breather* when the month was thin.
+- "**A** HTML project", and sentences mixing "seven" with "33".
+
+The rule that came out of it: warmth lives in how a true thing is said, never in saying a
+nicer thing. `numerals()` now enforces one number format per sentence in one place rather
+than three, and `article()` handles "an HTML".
+
+Also fixed here, both found by the same pass and both pre-existing: `--ink-3` measured
+3.97:1 in light mode — under WCAG AA for the kickers, bylines, captions, folio and legend
+that use it — and is now `#726f66` at 4.64:1; and the theme toggle didn't survive a
+reload, so the choice is remembered in `localStorage` now, wrapped because it throws
+outright in a few browser configurations.
 
 ---
 
@@ -203,10 +277,13 @@ reload, and an expanded story is still correct after switching back issues.
 
 ## Cross-cutting, pick up during any sprint
 
-- **Visual regression.** Rendering is currently checked by eye against screenshots. A
-  small Playwright script that renders the light, dark, mobile, all-quiet and
-  nothing-at-all states and diffs against committed baselines would catch layout
-  regressions for very little effort. Worth doing before Sprint 3 moves the type around.
+- ~~**Visual regression.**~~ ✅ **Done in Sprint 3** — `scripts/render-check.mjs`. It
+  turned out that *assertions* beat committed image baselines here: a baseline diff goes
+  red every time the real snapshot changes, which is every day, so nobody would look at
+  it. Instead it renders four snapshot states across five shapes and fails on the things
+  that are always wrong — console errors, `NaN` on the page, horizontal overflow, chrome
+  visible in print, engravings that move between renders. Run it before pushing; it needs
+  Playwright, so it isn't in the publish workflow.
 - **Accessibility pass.** Landmarks, heading order, SVG roles and labels, focus rings,
   and a contrast check in both themes. The engravings need sensible alt text — currently
   they all say much the same thing.
