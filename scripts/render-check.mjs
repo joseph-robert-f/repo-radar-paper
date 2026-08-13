@@ -23,6 +23,10 @@
  *   - horizontal overflow, which is invisible at 1250px and ruins 390px and
  *     the printed page (the year-in-weather grid ran 218px off A4);
  *   - the pull quote setting something that isn't worth setting;
+ *   - a caption claiming a language the drawing didn't actually come from;
+ *   - anything still animating under prefers-reduced-motion;
+ *   - an approved review not sorting to the top of the Classifieds, which is
+ *     the one ad a reader can clear in a single click;
  *   - engravings shifting between renders, which would make the paper a
  *     different paper on every load.
  *

@@ -54,13 +54,13 @@ routing — that genuinely wants its own module rather than more functions in a 
 
 Sprint 3 added about a hundred lines and the first piece of render-scoped state
 (`motifPlan`), which is the kind of thing a module boundary exists to hold. Sprint 5 added
-six more sections and took the file past **1,800 lines**, with a second piece of that
+six more sections and took the file to **2,049 lines**, with a second piece of that
 state (`headlinePlan`).
 
 **Still one file, and now genuinely on the edge.** What has kept it navigable is that
 every section is one self-contained function in the order it appears on the page, so you
 can find anything by scrolling to where you'd expect to read it. That property is worth
-more than a file split, and it survives at 1,800 lines. It will not survive Sprint 4,
+more than a file split, and it survives at 2,000-odd lines. It will not survive Sprint 4,
 which threads keyboard handling, expansion state and routing *across* those functions
 rather than adding another one. Split it there, not before.
 
