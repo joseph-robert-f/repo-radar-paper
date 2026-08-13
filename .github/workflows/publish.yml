@@ -35,21 +35,30 @@ jobs:
   set:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch the latest snapshot from repo-radar
         run: |
           mkdir -p data
           curl -fsSL --retry 4 --retry-delay 3 "$SNAPSHOT_URL" -o data/snapshot.fetched.json
-          node -e "
-            const s = JSON.parse(require('fs').readFileSync('data/snapshot.fetched.json','utf8'));
-            if (s.scope !== 'public') { console.error('snapshot scope is not public'); process.exit(1); }
-            if (s.sample) { console.error('snapshot is sample data'); process.exit(1); }
-            const bad = s.repos.filter(r => r.isPrivate);
-            if (bad.length) { console.error('private repos in snapshot: ' + bad.map(r => r.name)); process.exit(1); }
-            console.log('fetched ' + s.repos.length + ' stories, taken ' + s.generatedAt);
-          "
-          mv data/snapshot.fetched.json data/snapshot.json
+
+      # The fetched file comes from a repository that has no idea this site
+      # consumes it, and whose own tests pass whatever it does to the shape. A
+      # renamed field there would otherwise hollow this page out quietly — no
+      # Forecast, no Corrections, every story on its dullest angle — behind a
+      # green build. This turns that into a failure on the same refresh, naming
+      # the field and the sections that die with it.
+      #
+      # Runs before the file is moved into place, so a broken schema leaves the
+      # last good snapshot published rather than replacing it with one the page
+      # can't set itself from.
+      - name: Check the snapshot against what the paper reads
+        run: |
+          node scripts/check-snapshot.mjs --selftest
+          node scripts/check-snapshot.mjs data/snapshot.fetched.json
+
+      - name: Take delivery of the snapshot
+        run: mv data/snapshot.fetched.json data/snapshot.json
 
       - name: File today's edition into the archive
         run: node scripts/edition.mjs
