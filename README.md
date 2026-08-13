@@ -248,10 +248,11 @@ npm i --no-save playwright && npx playwright install chromium
 node scripts/render-check.mjs
 ```
 
-It renders six snapshot states — real, all-quiet, an archived edition's shape, a lead
-worth quoting, a lead with nothing worth quoting, and an account with no repos at all —
-across six shapes: 1250px, 390px, dark, reduced-motion, and print at A4 and US Letter
-widths. It fails on a console error, a `NaN` or `undefined` reaching the page, any
+It renders seven snapshot states — real, all-quiet, an archived edition's shape, every
+review state at once, a lead worth quoting, a lead with nothing worth quoting, and an
+account with no repos at all — across six shapes: 1250px, 390px, dark, reduced-motion,
+and print at A4 and US Letter widths. Forty-two combinations, plus determinism and
+cross-issue stability: **44 checks**. It fails on a console error, a `NaN` or `undefined` reaching the page, any
 horizontal overflow, a pull quote that shouldn't have been set, a caption claiming a
 language the drawing didn't come from, chrome left visible in print, anything still
 animating under `prefers-reduced-motion`, or engravings that move between renders.
