@@ -48,12 +48,38 @@ export const KEEP_DAYS = 90;
  * box hidden and one "most recently" line per story, which is what you actually
  * want from "where was I on Friday".
  */
+/**
+ * The two figures the Forecast rests on, plus the queue length.
+ *
+ * Stored so the *next* day's Corrections column can mark the forecast against
+ * what actually happened. A prediction nobody checks is decoration.
+ *
+ * Deliberately arithmetic only — no trend label, no prose. The rule that turns
+ * these numbers into a claim lives in `trendOf()` in the page, and a second
+ * copy here would be one judgement in two places, drifting apart. The page
+ * re-derives the claim from these figures when it marks them.
+ *
+ * Derived from `daily`, a rolling 30-day window, so it shifts once per UTC day
+ * rather than on every refresh — which is the byte stability the no-op commit
+ * check depends on.
+ */
+function forecastFacts(snap) {
+  const series = (snap.repos || [])
+    .map((r) => r.daily)
+    .filter((x) => Array.isArray(x) && x.length >= 14);
+  if (!series.length) return null;
+  const sum = (from, to) =>
+    series.reduce((n, s) => n + s.slice(from, to).reduce((a, b) => a + b, 0), 0);
+  return { week: sum(-7, undefined), before: sum(-14, -7), queue: (snap.attention || []).length };
+}
+
 export function toEdition(snap) {
   return {
     date: String(snap.generatedAt).slice(0, 10),
     user: snap.user,
     scope: snap.scope,
     summary: snap.summary,
+    forecast: forecastFacts(snap),
     repos: (snap.repos || []).map((r) => ({
       name: r.name,
       url: r.url,

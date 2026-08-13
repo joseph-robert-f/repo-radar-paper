@@ -244,6 +244,79 @@ outright in a few browser configurations.
 
 ---
 
+## Sprint 5 — The rest of the paper ✅ shipped
+
+**The point:** a real newspaper is mostly not news. The sections around the reporting are
+what make it a paper you *read* rather than a page you scan — and every one of these
+carries data that was already in the file.
+
+### Shipped
+
+**Three fields the paper had been throwing away.** `additions`, `deletions` and
+`reviewDecision` were collected from day one and never printed. Classified ads are now
+sized by their own diff — *"a substantial undertaking — 16,984 added, 729 removed"* rather
+than *"waiting one day"* — and an **approved-but-unmerged** review sorts to the top with a
+rule down its side. That state is the most actionable thing in the dataset, somebody
+having already said yes, and the paper simply couldn't express it before.
+
+**The Editorial.** The one place the paper has an opinion. A list can state that a branch
+has waited ninety-seven days; only a leader column can say that ninety-seven days is too
+long. Rule-based, so the position follows from the numbers, with a branch for every state
+including "nothing to editorialise about, which is its own kind of good news".
+
+**In Tomorrow's Paper.** The only forward-looking thing on the page: threshold crossings
+due within the week, from dates already in the snapshot. *"Tomorrow — Pantry Pal slips
+into dormancy unless something lands."* Two threads in one project crossing the same mark
+collapse into one announcement.
+
+**Births, Marriages & Deaths.** Branches born, reviews married into the trunk, issues laid
+to rest, branches departed. The oldest column in any newspaper and a perfect fit for a
+diff.
+
+**Corrections & Clarifications.** Editions now store the two figures their forecast rested
+on, and the next day's paper marks them. It is the funniest thing on the page and it is
+also the reason the Forecast is worth reading at all.
+
+**Advertisements.** One period trade notice per language present. Pure filler, and filler
+is what separates a newspaper from a dashboard.
+
+### Watch out — the thing that caught us three times
+
+`{week, before, queue}` is stored as **arithmetic only**. The temptation is to store the
+trend label too, which puts one judgement in two files and lets them drift; `trendOf()`
+lives in the page and nowhere else. Same discipline as everything else here: editions hold
+facts, the page holds opinions.
+
+The other trap is claiming more than the data supports. *Steady* can never be marked
+wrong, so Corrections doesn't try; and an ad with no churn says "nothing at all to read"
+rather than printing "0 added, 0 removed".
+
+**Verified.** 44 render checks across six snapshot states and six shapes. Three new
+assertions — the Editorial always printing, exactly one approved ad sorting first, one
+advert per language — were each confirmed to **fail against the unfixed code** before
+being kept. Corrections and Births/Marriages/Deaths were exercised against a synthetic
+previous edition carrying a deliberately wrong forecast, a merged review, a resolved
+issue, a new branch and a landed one; the synthetic edition was removed before committing.
+
+---
+
+## Sprint 6 — The Crossword ⬜ next
+
+The one thing a newspaper has that nothing else does, and a real generation algorithm
+rather than a template. Notes from looking at the data:
+
+- **Don't source it from commit messages.** The week's top words are *from, merge, pull,
+  request, joseph, robert* — merge-commit noise, and only 61 commits to draw on. Build the
+  word bank from **repo names, languages and branch words**, which are clean, plentiful
+  and recognisable.
+- Clue from the numbers, so solving it means reading the data: *"Project that logged
+  eleven commits this week (8,6,9,7)"*.
+- Deterministic, like everything else: the same issue must always set the same grid.
+- Interactive but keyboard-first, and it must degrade to a printed grid — the print
+  stylesheet is the payoff and a crossword you can't solve on paper is a waste of it.
+
+---
+
 ## Sprint 4 — The reader's hand
 
 **The point:** "dynamic" in the sense that matters — the page responds to you. Today it

@@ -282,6 +282,11 @@
   .ad a { text-decoration: none; }
   .ad a:hover { text-decoration: underline; }
   .ad .where { color: var(--ink-2); display: block; margin-top: 2px; font-size: 11.5px; }
+  .ad .where code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+  /* An approved review is the one ad you can act on now — a rule down the side
+     rather than a colour, so it still reads on paper and in monochrome. */
+  .ad.ready { border-left: 3px solid var(--ink); padding-left: 8px; }
+  .ad.ready .lead-in { color: var(--ink); font-weight: 700; }
 
   /* letters */
   .letter { padding: 9px 0; border-bottom: 1px dotted var(--rule); font-size: 14px; line-height: 1.5; }
@@ -297,11 +302,63 @@
   .obit .who { font-weight: 700; }
   .forecast p, .onthis p { margin: 0 0 6px; font-size: 14px; line-height: 1.45; }
   .forecast p:last-child, .onthis p:last-child { margin-bottom: 0; }
-  .forecast .glass {
+  .forecast .glass, .editorial .glass, .corrections .glass, .tomorrow .glass {
     font-family: ui-sans-serif, system-ui, sans-serif;
     font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--ink-3); display: block; margin-bottom: 5px;
   }
+
+  /* the editorial — the only place the paper has a view, so it looks like a
+     leader column: heavier rule, italic setting, a touch more air */
+  .editorial { border-width: 3px; border-style: double; }
+  .editorial p { margin: 0; font-size: 14.5px; line-height: 1.55; font-style: italic; }
+  .editorial p b { font-style: normal; }
+
+  /* corrections — small, contrite, ruled off */
+  .corrections p { margin: 0 0 6px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+  .corrections p:last-child { margin-bottom: 0; }
+
+  /* tomorrow's paper */
+  .tomorrow p { margin: 0 0 6px; font-size: 13.5px; line-height: 1.45; }
+  .tomorrow p:last-child { margin-bottom: 0; }
+  .tomorrow .when {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3);
+  }
+
+  /* births, marriages & deaths — narrow columns of announcements */
+  .bmd-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 22px; }
+  .bmd { break-inside: avoid; }
+  .bmd h4 {
+    margin: 0 0 6px; font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3);
+    border-bottom: 1px solid var(--rule-faint); padding-bottom: 4px;
+  }
+  .bmd p {
+    margin: 0 0 7px; font-size: 12.5px; line-height: 1.45;
+    padding-bottom: 6px; border-bottom: 1px dotted var(--rule);
+  }
+  .bmd p:last-child { border-bottom: none; }
+  .bmd code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+  .hatches { margin-bottom: 20px; }
+
+  /* advertisements — period trade notices, boxed and centred */
+  .adverts {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-top: 4px;
+  }
+  .advert {
+    border: 1px solid var(--rule); padding: 10px 8px; text-align: center;
+    background: var(--paper-2); break-inside: avoid;
+  }
+  .advert .ad-rule { font-size: 8px; letter-spacing: 0.4em; color: var(--ink-3); line-height: 1.6; }
+  .advert .ad-name {
+    font-variant: small-caps; font-weight: 700; letter-spacing: 0.04em;
+    font-size: 17px; line-height: 1.15; margin: 3px 0;
+  }
+  .advert .ad-slogan { font-style: italic; font-size: 12px; color: var(--ink-2); line-height: 1.35; }
+  .advert .ad-body { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; margin: 4px 0 3px; }
+  .adverts-wrap { margin-top: 22px; }
 
   @media (max-width: 900px) {
     .backpage-grid { grid-template-columns: 1fr; }
@@ -475,10 +532,12 @@
     </div>
 
     <div class="backpage hidden" id="backpage">
+      <div class="hatches" id="hatches"></div>
       <div class="backpage-grid">
         <div id="classifieds"></div>
         <div id="letters"></div>
       </div>
+      <div class="adverts-wrap" id="adverts"></div>
     </div>
 
     <div class="folio" id="folio"></div>
@@ -1191,6 +1250,115 @@ function stateOfTheWorld(d) {
   return bits.join(" ");
 }
 
+/**
+ * An attention item's title as prose. The collector appends " · 1 unmerged" to
+ * branch tasks, which is right in a list and reads like a paste error inside a
+ * sentence: "has held fix/x · 1 unmerged for 97 days".
+ */
+const plainTitle = (t) => String(t || "").replace(/\s*·\s*\d+\s+unmerged\s*$/i, "");
+
+/**
+ * The Editorial — the one place the paper is allowed an opinion.
+ *
+ * Everything else on the page reports. A list can state that a branch has
+ * waited ninety-seven days; it cannot say that ninety-seven days is too long.
+ * A leader column can, and a gentle nag from a newspaper is easier to take
+ * than a red badge.
+ *
+ * Rule-based and therefore honest: the position follows from the numbers, and
+ * when there is nothing to have a view about it says so rather than
+ * manufacturing indignation.
+ */
+function editorialHTML(d) {
+  const s = d.summary || {};
+  const oldest = (d.attention || [])[0];
+  const approved = (d.repos || []).flatMap((r) => (r.openPRs || []).filter(APPROVED).map((p) => ({ r, p })));
+  const asleep = (d.repos || []).filter((r) => r.status === "dormant").length;
+  const busiest = [...(d.repos || [])].sort((a, b) => b.counts.commits7d - a.counts.commits7d)[0];
+
+  let view;
+  if (approved.length) {
+    const { r, p } = approved[0];
+    view = `${Plural(approved.length, "review")} ${approved.length === 1 ? "has" : "have"} been approved and
+      ${approved.length === 1 ? "is" : "are"} still sitting unmerged — <b>#${p.number}</b> at
+      <b>${esc(titleCase(r.name))}</b> among them. Somebody has already done the hard part.
+      This newspaper sees no reason to keep the work waiting on a button.`;
+  } else if (oldest && Math.round(daysSince(oldest.updatedAt)) >= 60) {
+    const days = Math.round(daysSince(oldest.updatedAt));
+    view = `<b>${esc(titleCase(oldest.repo))}</b> has held <em>${esc(plainTitle(oldest.title))}</em> for
+      ${plural(days, "day")}. It is this newspaper's view that a thing untouched for
+      ${plural(Math.round(days / 30), "month")} is not waiting to be finished but waiting to be
+      decided. Merge it or close it; either is kinder than another month of neither.`;
+  } else if (oldest) {
+    view = `${Plural(d.attention.length, "thread")} ${d.attention.length === 1 ? "is" : "are"} drifting,
+      the oldest at <b>${esc(titleCase(oldest.repo))}</b>. Nothing alarming — but threads
+      seldom get shorter on their own, and an afternoon now is cheaper than a fortnight later.`;
+  } else if (s.commits7d === 0 && asleep) {
+    view = `Not a commit anywhere this week, and ${plural(asleep, "project")} sleeping soundly.
+      There is a version of this column that scolds. This is not it: rest is part of the work,
+      and everything here is exactly where it was left.`;
+  } else if (busiest && busiest.counts.commits7d > 0) {
+    view = `Nothing is outstanding, nothing is rotting, and <b>${esc(titleCase(busiest.name))}</b>
+      is moving under its own steam. This newspaper has no complaints to register and is
+      slightly disappointed about it.`;
+  } else {
+    view = `A quiet desk and a clear conscience. We find we have nothing to editorialise about,
+      which is its own kind of good news.`;
+  }
+  return `<div class="box editorial"><h3>The Editorial</h3>
+    <span class="glass">From the Editor's desk</span><p>${view}</p></div>`;
+}
+
+/**
+ * In Tomorrow's Paper — the thresholds about to be crossed.
+ *
+ * Everything else here is retrospective. This is the only part that looks
+ * forward, and it costs nothing: the crossings are arithmetic on dates already
+ * in the snapshot. It prints only what will happen within the week, and never
+ * guesses at commits, which are a matter of free will.
+ */
+function tomorrowHTML(d) {
+  const soon = [];
+  const marks = [30, 60, 90, 100, 180, 365];
+
+  // Two threads in the same project crossing the same mark are one
+  // announcement, not two near-identical ones stacked on top of each other.
+  const crossings = new Map();
+  for (const t of d.attention || []) {
+    const days = daysSince(t.updatedAt);
+    for (const mark of marks) {
+      if (days < mark && days + 7 >= mark) {
+        const key = `${t.repo}:${mark}`;
+        const at = crossings.get(key);
+        if (at) at.titles.push(plainTitle(t.title));
+        else crossings.set(key, { repo: t.repo, mark, inDays: Math.ceil(mark - days), titles: [plainTitle(t.title)] });
+        break;
+      }
+    }
+  }
+  for (const c of crossings.values()) {
+    soon.push({ inDays: c.inDays, text:
+      `<b>${esc(titleCase(c.repo))}</b> passes ${c.mark} days waiting on ${
+        c.titles.length === 1 ? `<em>${esc(c.titles[0])}</em>` : plural(c.titles.length, "thread")}` });
+  }
+  for (const r of d.repos || []) {
+    const idle = daysSince(r.lastActivityAt);
+    // Sixty days is the dormancy threshold the collector uses.
+    if (r.status !== "dormant" && idle < 60 && idle + 7 >= 60) {
+      soon.push({ inDays: Math.ceil(60 - idle), text:
+        `<b>${esc(titleCase(r.name))}</b> slips into dormancy unless something lands` });
+    }
+  }
+  if (!soon.length) return "";
+
+  soon.sort((a, b) => a.inDays - b.inDays);
+  const when = (n) => (n <= 1 ? "Tomorrow" : `In ${plural(n, "day")}`);
+  const rows = soon.slice(0, 3)
+    .map((x) => `<p><span class="when">${esc(when(x.inDays))}</span> — ${x.text}.</p>`).join("");
+  return `<div class="box tomorrow"><h3>In Tomorrow's Paper</h3>
+    <span class="glass">Barring intervention</span>${rows}</div>`;
+}
+
 /* ---------- what changed since the last edition -------------------------
    The whole point of a daily paper. Compares the current issue against the
    most recent archived one; everything is derived from the two files, so it
@@ -1365,31 +1533,168 @@ function weatherHTML(d) {
    Both are the same data the dashboard lists, set as newspaper furniture. The
    review queue reads better as small ads than as a list, and an open issue is
    already a letter to the editor in everything but typography.            */
+/**
+ * How big a job a review is, in words rather than a figure nobody weighs.
+ *
+ * `additions` and `deletions` have been in the snapshot since the collector
+ * was written and the paper never printed them. They are the most useful thing
+ * you can tell someone deciding whether to open a review now or after lunch:
+ * one open review here is +16,984/−729, and "waiting one day" said nothing
+ * about that.
+ */
+function jobSize(pr) {
+  const add = Number(pr.additions), del = Number(pr.deletions);
+  if (!Number.isFinite(add) || !Number.isFinite(del)) return null;
+  const churn = add + del;
+  if (churn === 0) return { size: "nothing at all to read", fig: null };
+  const fig = `${add.toLocaleString("en-GB")} added, ${del.toLocaleString("en-GB")} removed`;
+  if (churn < 30) return { size: "a quick job", fig };
+  if (churn < 200) return { size: "half an hour, no more", fig };
+  if (churn < 1000) return { size: "a proper sitting", fig };
+  return { size: "a substantial undertaking", fig };
+}
+
+/**
+ * An approved review that hasn't been merged is the most actionable state in
+ * the whole dataset — somebody already said yes and it is *still there* — and
+ * until now the paper couldn't tell you. `reviewDecision` was being collected
+ * and dropped on the floor.
+ */
+const APPROVED = (pr) => String(pr.reviewDecision || "").toUpperCase() === "APPROVED";
+const CHANGES = (pr) => String(pr.reviewDecision || "").toUpperCase() === "CHANGES_REQUESTED";
+
 function classifiedsHTML(d) {
   const ads = d.repos.flatMap((r) => (r.openPRs || []).map((p) => ({ repo: r, pr: p })));
   if (!ads.length) {
     return `<div class="secthead">Classifieds</div>
       <p class="allclear">No positions vacant — every review has found its reader. Advertise here next week.</p>`;
   }
-  const rows = ads.map(({ repo, pr }) => {
+  // Approved-and-waiting first: it is the one ad the reader can clear in a
+  // single click. Then oldest first.
+  const ordered = [...ads].sort((a, b) =>
+    (APPROVED(b.pr) - APPROVED(a.pr)) || (Date.parse(a.pr.updatedAt) - Date.parse(b.pr.updatedAt)));
+
+  const rows = ordered.map(({ repo, pr }) => {
     const waited = Math.round(daysSince(pr.updatedAt));
-    const leadIn = pr.isDraft
-      ? "Coming soon · work in progress"
+    const leadIn = APPROVED(pr) ? "Approved — awaiting collection"
+      : CHANGES(pr) ? "Returned to sender — changes requested"
+      : pr.isDraft ? "Coming soon · work in progress"
       : [
           "Wanted — one reviewer, no experience necessary",
           "Seeking — a second pair of eyes",
           "Offered — a pleasant half hour's reading",
           "Vacancy — one approval, immediate start",
         ][seedFrom(repo.name + pr.number) % 4];
-    return `<div class="ad">
+    const job = jobSize(pr);
+    return `<div class="ad${APPROVED(pr) ? " ready" : ""}">
       <span class="lead-in">${esc(leadIn)}</span>
       <a href="${esc(pr.url)}" target="_blank" rel="noopener">#${pr.number} ${esc(pr.title)}</a>
-      <span class="where">${esc(repo.name)}${repo.language ? ` · ${esc(repo.language)}` : ""} · ${
-        waited < 1 ? "posted this morning" : `waiting ${plural(waited, "day")}`}. Apply within.</span>
+      <span class="where">${esc(repo.name)}${repo.language ? ` · ${esc(repo.language)}` : ""}${
+        pr.headRef ? ` · <code>${esc(pr.headRef)}</code>` : ""} · ${
+        waited < 1 ? "posted this morning" : `waiting ${plural(waited, "day")}`}.${
+        job ? ` ${cap(job.size)}${job.fig ? ` — ${job.fig}` : ""}.` : ""} Apply within.</span>
     </div>`;
   }).join("");
-  return `<div class="secthead">Classifieds <span class="count">· ${plural(ads.length, "position")} vacant</span></div>
+
+  const ready = ads.filter(({ pr }) => APPROVED(pr)).length;
+  return `<div class="secthead">Classifieds <span class="count">· ${plural(ads.length, "position")} vacant${
+    ready ? `, ${spell(ready)} approved` : ""}</span></div>
     <div class="ads">${rows}</div>`;
+}
+
+/**
+ * Births, Marriages & Deaths.
+ *
+ * The oldest column in any newspaper, and version control hands it over whole:
+ * branches are born, pull requests marry into the trunk, issues are laid to
+ * rest. It reads as a joke and it is in fact the day's changelog — every entry
+ * is something that genuinely happened since the last edition.
+ *
+ * Needs the archive, so it stays absent until two editions are on file.
+ */
+function hatchesHTML(diff) {
+  if (!diff) return "";
+  const list = (xs, f) => xs.map(f).join("");
+  const parts = [];
+
+  if (diff.branchesNew.length) {
+    parts.push(`<div class="bmd"><h4>Births</h4>${list(diff.branchesNew, (b) =>
+      `<p>To <b>${esc(titleCase(b.repo))}</b>, a branch, <code>${esc(b.name)}</code>.
+       ${b.unmergedCommits ? `${Plural(b.unmergedCommits, "commit")} already to its name.` : "Nothing to its name yet."}</p>`)}</div>`);
+  }
+  if (diff.prsClosed.length) {
+    parts.push(`<div class="bmd"><h4>Marriages</h4>${list(diff.prsClosed, (p) =>
+      `<p><b>#${p.number}</b>, <em>${esc(p.title)}</em>, of <b>${esc(titleCase(p.repo))}</b>.
+       Quietly, and by mutual consent. No cards, by request.</p>`)}</div>`);
+  }
+  // A branch that landed is the other half of a marriage, so it's noted as a
+  // departure rather than mourned.
+  if (diff.branchesLanded.length) {
+    parts.push(`<div class="bmd"><h4>Departures</h4>${list(diff.branchesLanded, (b) =>
+      `<p><code>${esc(b.name)}</code> has left <b>${esc(titleCase(b.repo))}</b>,
+       its work done and folded into the trunk.</p>`)}</div>`);
+  }
+  if (diff.issuesClosed.length) {
+    parts.push(`<div class="bmd"><h4>Deaths</h4>${list(diff.issuesClosed, (i) =>
+      `<p><b>#${i.number}</b>, <em>${esc(i.title)}</em>, of <b>${esc(titleCase(i.repo))}</b>,
+       resolved. It is survived by the code that answered it.</p>`)}</div>`);
+  }
+
+  if (!parts.length) return "";
+  return `<div class="secthead">Births, Marriages &amp; Deaths</div>
+    <div class="bmd-cols">${parts.join("")}</div>`;
+}
+
+/**
+ * Corrections & Clarifications.
+ *
+ * The Forecast makes a claim every day and, until now, nothing ever checked
+ * it. A prediction nobody marks is decoration. So the edition carries the
+ * figures its forecast was made from, and the next day's paper reads them back
+ * against what actually happened and owns up in public when it was wrong.
+ *
+ * The joke is that it exists at all. The point is that it makes the Forecast
+ * worth reading, because you know it gets marked.
+ */
+function correctionsHTML(d, prev, prevDate) {
+  const said = prev?.forecast;
+  if (!said || !Number.isFinite(said.week)) return "";
+  const now = forecastFacts(d);
+  if (!now) return "";
+
+  const claimed = trendOf(said.week, said.before);
+  const lines = [];
+
+  // Only "rising", "easing" and "settled" are claims strong enough to be
+  // wrong. "Steady" is unfalsifiable and this column will not pretend it isn't.
+  const w = numerals(said.week, now.week, now.week - said.week);
+  if (claimed === "rising" && now.week < said.week) {
+    lines.push(`Yesterday this column forecast a brightening week. Commits have in fact fallen
+      from ${w.n(said.week)} to ${w.n(now.week)}. We regret the error.`);
+  } else if (claimed === "easing" && now.week > said.week) {
+    lines.push(`Yesterday this column forecast a gentler week. ${w.P(now.week - said.week, "further commit")}
+      arrived regardless. The barometer is being looked at.`);
+  } else if (claimed === "settled" && now.week > 0) {
+    lines.push(`We described the presses as perfectly still. ${w.P(now.week, "commit")} ${
+      now.week === 1 ? "has" : "have"} landed since. We are pleased to have been contradicted.`);
+  }
+
+  if (Number.isFinite(said.queue)) {
+    const q = numerals(said.queue, now.queue, now.queue - said.queue);
+    if (said.queue > 0 && now.queue === 0) {
+      lines.push(`We reported ${q.p(said.queue, "thread")} waiting. The queue has since been cleared
+        in full, and this newspaper is delighted to be out of date.`);
+    } else if (now.queue > said.queue) {
+      lines.push(`We put the waiting list at ${said.queue === 0 ? "nothing at all" : q.n(said.queue)};
+        it stands at ${q.n(now.queue)}. ${q.N(now.queue - said.queue)} more ${
+        now.queue - said.queue === 1 ? "has" : "have"} joined since we went to press.`);
+    }
+  }
+
+  if (!lines.length) return "";
+  return `<div class="box corrections"><h3>Corrections &amp; Clarifications</h3>
+    <span class="glass">Concerning the edition of ${esc(prevDate || "yesterday")}</span>
+    ${lines.map((l) => `<p>${l}</p>`).join("")}</div>`;
 }
 
 function lettersHTML(d) {
@@ -1442,31 +1747,97 @@ function obituariesHTML(diff, repos) {
  * forecast. Back issues don't carry the series, so this simply doesn't run.
  */
 function forecastHTML(d) {
-  const series = d.repos.map((r) => r.daily).filter((x) => Array.isArray(x) && x.length >= 14);
-  if (!series.length) return "";
-  const sumRange = (from, to) =>
-    series.reduce((n, s) => n + s.slice(from, to).reduce((a, b) => a + b, 0), 0);
-  const week = sumRange(-7, undefined);
-  const before = sumRange(-14, -7);
-
+  const f = forecastFacts(d);
+  if (!f) return "";
+  const { week, before } = f;
   const { n, N } = numerals(week, before);
 
-  let outlook;
-  if (week === 0 && before === 0) outlook = "Set fair and perfectly still. Nothing in a fortnight, and no sign of weather.";
-  else if (week === 0) outlook = `A calm spell after ${n(before)} commits the week before. Enjoy it.`;
-  else if (before === 0) outlook = `Fine and clearing — ${N(week)} commits after a fortnight of still air.`;
-  else if (week >= before * 1.5) outlook = `Brightening handsomely — ${N(week)} commits against ${n(before)} the week before.`;
-  else if (week * 1.5 <= before) outlook = `Gentler this week: ${n(week)} commits against ${n(before)}. Nothing to batten down.`;
-  else outlook = `Steady as she goes — ${N(week)} commits, much as the week before.`;
+  const outlook = {
+    settled: "Set fair and perfectly still. Nothing in a fortnight, and no sign of weather.",
+    stopped: `A calm spell after ${n(before)} commits the week before. Enjoy it.`,
+    breaking: `Fine and clearing — ${N(week)} commits after a fortnight of still air.`,
+    rising: `Brightening handsomely — ${N(week)} commits against ${n(before)} the week before.`,
+    easing: `Gentler this week: ${n(week)} commits against ${n(before)}. Nothing to batten down.`,
+    steady: `Steady as she goes — ${N(week)} commits, much as the week before.`,
+  }[trendOf(week, before)];
 
-  const waiting = (d.attention || []).length;
-  const queue = waiting
-    ? `${Plural(waiting, "thread")} waiting; a spare afternoon would clear the lot.`
+  const queue = f.queue
+    ? `${Plural(f.queue, "thread")} waiting; a spare afternoon would clear the lot.`
     : `Clear skies over the review desk, and not a thing outstanding.`;
 
   return `<div class="box forecast"><h3>The Forecast</h3>
     <span class="glass">Set by the glass, not by hope</span>
     <p>${outlook}</p><p>${queue}</p></div>`;
+}
+
+/**
+ * Which way the glass is moving. One rule, in one place.
+ *
+ * Corrections has to know what yesterday's paper *claimed*, not merely what it
+ * printed, so the archived edition stores the two figures the forecast was made
+ * from and this turns them into the claim. Keeping the threshold here rather
+ * than duplicating it in `edition.mjs` means the editions store arithmetic and
+ * the page owns every judgement.
+ */
+function trendOf(week, before) {
+  if (week === 0 && before === 0) return "settled";
+  if (week === 0) return "stopped";
+  if (before === 0) return "breaking";
+  if (week >= before * 1.5) return "rising";
+  if (week * 1.5 <= before) return "easing";
+  return "steady";
+}
+
+/** The figures the forecast rests on. Mirrored by `edition.mjs`. */
+function forecastFacts(d) {
+  const series = (d.repos || []).map((r) => r.daily).filter((x) => Array.isArray(x) && x.length >= 14);
+  if (!series.length) return null;
+  const sum = (from, to) => series.reduce((n, s) => n + s.slice(from, to).reduce((a, b) => a + b, 0), 0);
+  return { week: sum(-7, undefined), before: sum(-14, -7), queue: (d.attention || []).length };
+}
+
+/**
+ * Advertisements.
+ *
+ * Pure atmosphere, and the thing that most makes a page read as a newspaper
+ * rather than a dashboard — a real paper is mostly not news. One notice per
+ * language actually present in the issue, so even the filler says something
+ * true about what you build with.
+ *
+ * An unrecognised language still gets an honest notice rather than being
+ * skipped: a gap in the column looks like a bug, and a trade advertisement
+ * does not.
+ */
+const ADVERTS = {
+  Python: ["PYTHON", "Batteries Included, Whitespace Significant", "Indentation is Meaning. Ship Serpents, Not Semicolons."],
+  TypeScript: ["TYPESCRIPT", "Types for the Discerning Programmer", "Compiles with Confidence. Catches Errors Before Breakfast."],
+  JavaScript: ["JAVASCRIPT", "Runs Everywhere, Sleeps Never", "Now with Fewer Surprises. Enquire Within Regarding Equality."],
+  HTML: ["HTML", "The Universal Broadsheet", "Marks Up Anything. No Compiler, No Excuses, No Downtime Since 1993."],
+  CSS: ["CASCADING STYLE SHEETS", "Beauty by Declaration", "Cascades Freely. Specificity Disputes Settled Out of Court."],
+  Swift: ["SWIFT", "Fast by Name and by Nature", "Optionals Handled with Care. Nil Safely Contained."],
+  Go: ["GO", "Compiled Before You Finish Reading This", "Concurrency Made Simple. Generics Now in Stock."],
+  Rust: ["RUST", "Fearless Concurrency, Guaranteed", "No Data Races, No Null. The Borrow Checker is Always Right."],
+  Ruby: ["RUBY", "Optimised for Programmer Happiness", "Elegant Syntax. Blocks Supplied by the Yard."],
+  Java: ["JAVA", "Write Once, Run Anywhere", "Enterprise Strength. Verbosity Included at No Extra Charge."],
+  Shell: ["THE SHELL", "Small Tools, Sharply Made", "Pipes Fitted While You Wait. Quote Your Variables."],
+  "Jupyter Notebook": ["THE NOTEBOOK", "Science, Shown in Cells", "Run Out of Order at Your Peril. Kernel Restarts Complimentary."],
+};
+function advertsHTML(d) {
+  const langs = [...new Set((d.repos || []).map((r) => r.language).filter(Boolean))].sort();
+  if (!langs.length) return "";
+  const cards = langs.slice(0, 6).map((lang) => {
+    const [name, slogan, body] = ADVERTS[lang]
+      || [lang.toUpperCase(), "A Language of Rare Distinction", "Used Daily on These Very Premises. Testimonials Available."];
+    return `<div class="advert">
+      <div class="ad-rule">✦ ✦ ✦</div>
+      <div class="ad-name">${esc(name)}</div>
+      <div class="ad-slogan">${esc(slogan)}</div>
+      <div class="ad-body">${esc(body)}</div>
+      <div class="ad-rule">✦ ✦ ✦</div>
+    </div>`;
+  }).join("");
+  return `<div class="secthead">Advertisements <span class="count">· of the trades represented herein</span></div>
+    <div class="adverts">${cards}</div>`;
 }
 
 /**
@@ -1537,7 +1908,7 @@ $("#themeToggle").addEventListener("click", () => {
    Takes an issue — either today's snapshot or an archived edition — and sets
    the whole front page from it. Back issues are the same shape minus the
    heatmap and the full commit list, so the weather box simply doesn't run. */
-function setPage(d, { diff, prevDate, backIssue, index } = {}) {
+function setPage(d, { diff, prev, prevDate, backIssue, index } = {}) {
   $("#paper").classList.remove("hidden");
 
   const stamp = d.generatedAt || `${d.date}T12:00:00Z`;
@@ -1577,8 +1948,11 @@ function setPage(d, { diff, prevDate, backIssue, index } = {}) {
   $("#colRail").innerHTML =
     (backIssue ? "" : sinceHTML(diff, prevDate))
     + noticesHTML(d)
+    + (backIssue ? "" : tomorrowHTML(d))
+    + editorialHTML(d)
     + obituariesHTML(diff, d.repos)
     + forecastHTML(d)
+    + (backIssue ? "" : correctionsHTML(d, prev, prevDate))
     + weatherHTML(d)
     + (backIssue ? "" : onThisDayHTML(index, String(d.generatedAt || d.date).slice(0, 10)))
     + (dormant.length
@@ -1596,6 +1970,8 @@ function setPage(d, { diff, prevDate, backIssue, index } = {}) {
   $("#backpage").classList.remove("hidden");
   $("#classifieds").innerHTML = classifiedsHTML(d);
   $("#letters").innerHTML = lettersHTML(d);
+  $("#hatches").innerHTML = backIssue ? "" : hatchesHTML(diff);
+  $("#adverts").innerHTML = advertsHTML(d);
 
   const hm = $("#heatmap");
   if (hm) {
@@ -1645,8 +2021,10 @@ function loadToday() {
 
     const prevDate = older[0];
     if (!prevDate) return setPage(snap, { diff: null, index });
+    // `prev` goes through whole, not merely its diff: Corrections needs the
+    // forecast yesterday's paper actually printed, which no diff can recover.
     return jsonOr(`editions/${prevDate}.json`, null).then((prev) =>
-      setPage(snap, { diff: prev ? diffEditions(snap, prev) : null, prevDate, index }));
+      setPage(snap, { diff: prev ? diffEditions(snap, prev) : null, prev, prevDate, index }));
   });
 }
 
