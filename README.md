@@ -29,6 +29,36 @@ Two consequences worth knowing:
 - **Visitors never call GitHub.** The page reads a static file sitting beside it, same
   as the dashboard does. No API keys in the browser, no rate limits for readers.
 
+### The snapshot is a contract, and it is enforced
+
+`repo-radar` has no idea this site exists. Its tests pass whatever it does to the file's
+shape, so a rename over there — `daily` to `dailyCommits`, say — would sail through its
+checks, sail through the fetch here, and quietly hollow this page out: no Forecast, no
+Corrections, every story falling back to its dullest angle, and a green build the whole
+way.
+
+`scripts/check-snapshot.mjs` runs on every refresh, before the fetched file is moved into
+place, and fails the build naming both the field and what the reader lost:
+
+```
+✗ repos[].daily is missing (12 repos) — it feeds the Forecast,
+  Corrections & Clarifications, and the streak and surge angles
+```
+
+Because it runs before the move, a broken schema leaves the last good snapshot published
+rather than replacing it with one the page can't set itself from.
+
+Two design notes. It checks **key presence, never truthiness** — an empty review queue is
+a fine Tuesday, a missing `reviewDecision` key means the Classifieds can no longer say
+what's approved. And it is **deliberately not a schema validator**: extra fields are
+welcome, since `repo-radar` should be free to add them.
+
+It also checks itself. `node scripts/check-snapshot.mjs --selftest` breaks a known-good
+snapshot twenty-two ways and requires the checker to notice each one — a guard that runs
+unattended is exactly the kind that can rot into always-passing. The selftest also covers
+what live data can't: on a week with no open reviews, the whole pull-request half of the
+contract would otherwise go unexercised.
+
 The workflow runs on a cron offset from `repo-radar`'s so it picks up fresh data rather
 than racing it, and it skips the commit when only the timestamp moved.
 
@@ -175,6 +205,7 @@ data/snapshot.json               fetched from repo-radar; what the page reads
 editions/<YYYY-MM-DD>.json       one archived edition per day, pruned to 90
 editions/index.json              dates plus a digest per day, kept forever
 scripts/edition.mjs              files today's edition into the archive
+scripts/check-snapshot.mjs       guards the contract with repo-radar; runs in CI
 scripts/render-check.mjs         renders every state and shape; run before pushing
 .github/workflows/publish.yml    fetch, file, commit if changed, deploy Pages
 ROADMAP.md                       what's planned, and why
