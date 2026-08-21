@@ -1,5 +1,6 @@
 {
   "dates": [
+    "2026-08-21",
     "2026-08-20",
     "2026-08-19",
     "2026-08-18",
@@ -11,6 +12,14 @@
     "2026-08-12"
   ],
   "digest": {
+    "2026-08-21": {
+      "repos": 12,
+      "activeRepos": 4,
+      "commits7d": 33,
+      "openPRs": 1,
+      "openIssues": 1,
+      "needsAttention": 0
+    },
     "2026-08-20": {
       "repos": 12,
       "activeRepos": 4,
